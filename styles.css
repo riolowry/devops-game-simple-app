@@ -1,0 +1,26 @@
+/* ITS DevSecOps Adventure: supplemental styles */
+
+/* Prevent body scroll behind full-screen modals on mobile */
+html, body { height: 100%; }
+body { margin: 0; }
+
+/* Smooth momentum scrolling on iOS */
+.overflow-x-auto, .overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars visually on the tab nav and column nav
+   (they still scroll; just cleaner on mobile) */
+nav.overflow-x-auto::-webkit-scrollbar { height: 0; }
+nav.overflow-x-auto { scrollbar-width: none; }
+
+/* Give modal content safe-area padding on iOS */
+@supports (padding: max(0px)) {
+  .pb-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
+
+/* Printing support for token handouts */
+@media print {
+  header, nav, button { display: none !important; }
+  body { background: white; }
+}

@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Admin · ITS DevSecOps Adventure</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script
+      defer
+      src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"
+    ></script>
+  </head>
+
+  <body
+    class="bg-slate-50 text-slate-900 antialiased"
+    x-data
+    x-init="$store.app.init()"
+  >
+    <!-- LOGIN -->
+    <template x-if="!$store.app.user || !$store.app.isFacilitator()">
+      <div class="min-h-screen flex items-center justify-center p-4">
+        <div
+          class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8"
+        >
+          <h1 class="text-2xl font-bold">Facilitator login</h1>
+          <p class="text-slate-600 mt-2 text-sm">
+            Enter your facilitator token. On first setup, the default token is
+            <span class="font-mono bg-slate-100 px-1">FACIL1</span>.
+          </p>
+          <form
+            class="mt-6 space-y-4"
+            @submit.prevent="(async () => {
+                const ok = await $store.app.login($refs.tokenInput.value);
+                if (ok && !$store.app.isFacilitator()) {
+                  $store.app.loginError = 'Token is not a facilitator.';
+                  $store.app.logout();
+                }
+              })()"
+          >
+            <input
+              x-ref="tokenInput"
+              type="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="FACIL1"
+              class="w-full uppercase tracking-widest font-mono text-lg px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+            <button
+              type="submit"
+              class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 min-h-[44px]"
+            >
+              Enter
+            </button>
+            <p
+              x-show="$store.app.loginError"
+              x-text="$store.app.loginError"
+              class="text-sm text-rose-600 text-center"
+            ></p>
+          </form>
+          <div
+            class="mt-8 pt-6 border-t border-slate-200 text-xs text-slate-500"
+          >
+            <a href="index.html" class="text-sky-600 underline"
+              >Back to participant view</a
+            >
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ADMIN PANEL -->
+    <template x-if="$store.app.user && $store.app.isFacilitator()">
+      <div
+        class="min-h-screen flex flex-col"
+        x-data="{
+           tab: 'users',
+           newUser: { display_name: '', role: 'developer', team: '' },
+           bulkText: '',
+           lastCreatedTokens: [],
+           configDraft: null
+         }"
+        x-effect="
+           if (!configDraft && $store.app.gameStateLoaded) {
+             configDraft = {
+               session_label: $store.app.gameState.session_label,
+               security_modulus: $store.app.gameState.security_modulus,
+               hacker_count: $store.app.gameState.hacker_count,
+               sprint3_auto_advance_seconds: $store.app.gameState.sprint3_auto_advance_seconds
+             };
+           }
+         "
+      >
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
+          <div class="px-3 sm:px-6 py-3 flex items-center gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-xs text-slate-500">Facilitator console</div>
+              <h1
+                class="font-bold text-base sm:text-lg truncate"
+                x-text="$store.app.gameState.session_label"
+              ></h1>
+            </div>
+            <span
+              class="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full"
+              x-text="'Sprint ' + $store.app.gameState.current_sprint"
+            ></span>
+            <a
+              href="index.html"
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] flex items-center"
+            >
+              Board
+            </a>
+            <button
+              @click="$store.app.logout()"
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px]"
+            >
+              Exit
+            </button>
+          </div>
+
+          <!-- Tab bar (horizontal on sm+, scrollable on mobile) -->
+          <nav class="flex gap-1 px-3 sm:px-6 pb-2 overflow-x-auto text-sm">
+            <template
+              x-for="t in ['users', 'sprint', 'config', 'log', 'board', 'reset', 'export']"
+              :key="t"
+            >
+              <button
+                @click="tab = t"
+                :class="tab === t ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                class="whitespace-nowrap px-3 py-1.5 rounded-full capitalize min-h-[40px]"
+                x-text="t"
+              ></button>
+            </template>
+          </nav>
+        </header>
+
+        <main class="flex-1 p-3 sm:p-6 max-w-6xl w-full mx-auto">
+          <!-- ============================================================
+             USERS TAB
+             ============================================================ -->
+          <section x-show="tab === 'users'" class="space-y-6">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-3">Create a token</h2>
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <input
+                  x-model="newUser.display_name"
+                  placeholder="Name (optional)"
+                  class="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <select
+                  x-model="newUser.role"
+                  class="px-3 py-2 border border-slate-300 rounded-lg"
+                >
+                  <option value="business">Business</option>
+                  <option value="developer">Developer</option>
+                  <option value="tester">Tester</option>
+                  <option value="security">Security</option>
+                  <option value="release">Release</option>
+                  <option value="admin">Admin (read-only)</option>
+                  <option value="facilitator">Facilitator</option>
+                </select>
+                <input
+                  x-model="newUser.team"
+                  placeholder="Team (e.g. Team 1)"
+                  class="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <button
+                  @click="(async () => {
+                        const t = await $store.app.createUser(newUser);
+                        if (t) {
+                          lastCreatedTokens = [{ token: t, ...newUser }];
+                          newUser = { display_name: '', role: 'developer', team: '' };
+                        }
+                      })()"
+                  class="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-3">Bulk create</h2>
+              <p class="text-sm text-slate-600 mb-2">
+                One per line. Format: <code>name, role, team</code> (name and
+                team optional). Valid roles: <code>business</code>,
+                <code>developer</code>, <code>tester</code>,
+                <code>security</code>, <code>release</code>, <code>admin</code>,
+                <code>facilitator</code>. Role case does not matter (lowercased
+                automatically).
+              </p>
+              <textarea
+                x-model="bulkText"
+                rows="6"
+                placeholder="Alice, business,&#10;Bob, developer, Team 1&#10;Carol, developer, Team 1&#10;Dan, tester,&#10;..."
+                class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm"
+              ></textarea>
+              <button
+                @click="(async () => {
+                      const rows = bulkText.split('\n')
+                        .map(l => l.trim()).filter(Boolean)
+                        .map(l => {
+                          const parts = l.split(',').map(x => x.trim());
+                          return {
+                            display_name: parts[0] || null,
+                            role: (parts[1] || 'developer').toLowerCase(),
+                            team: parts[2] || null
+                          };
+                        });
+                      if (rows.length === 0) return;
+                      const created = await $store.app.createUsersBulk(rows);
+                      if (created && created.length > 0) {
+                        lastCreatedTokens = created;
+                        bulkText = '';
+                      }
+                    })()"
+                class="mt-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]"
+              >
+                Create all
+              </button>
+            </div>
+
+            <!-- Just-created tokens, printable -->
+            <template x-if="lastCreatedTokens.length > 0">
+              <div
+                class="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-6"
+              >
+                <h3 class="font-bold mb-3">New tokens (print or copy now)</h3>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead class="text-left text-slate-600">
+                      <tr>
+                        <th class="py-1 pr-3">Token</th>
+                        <th class="py-1 pr-3">Name</th>
+                        <th class="py-1 pr-3">Role</th>
+                        <th class="py-1 pr-3">Team</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="u in lastCreatedTokens" :key="u.token">
+                        <tr class="border-t border-amber-200">
+                          <td
+                            class="py-1 pr-3 font-mono font-bold"
+                            x-text="u.token"
+                          ></td>
+                          <td
+                            class="py-1 pr-3"
+                            x-text="u.display_name || '—'"
+                          ></td>
+                          <td class="py-1 pr-3 capitalize" x-text="u.role"></td>
+                          <td class="py-1 pr-3" x-text="u.team || ''"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  @click="lastCreatedTokens = []"
+                  class="mt-3 text-sm text-slate-600 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </template>
+
+            <!-- Full user list -->
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold">All tokens</h2>
+                <span
+                  class="text-sm text-slate-500"
+                  x-text="$store.app.users.length + ' total'"
+                ></span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="text-left text-slate-600">
+                    <tr>
+                      <th class="py-2 pr-3">Token</th>
+                      <th class="py-2 pr-3">Name</th>
+                      <th class="py-2 pr-3">Role</th>
+                      <th class="py-2 pr-3">Team</th>
+                      <th class="py-2 pr-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="u in $store.app.users" :key="u.token">
+                      <tr class="border-t border-slate-200">
+                        <td class="py-2 pr-3 font-mono" x-text="u.token"></td>
+                        <td
+                          class="py-2 pr-3"
+                          x-text="u.display_name || ''"
+                        ></td>
+                        <td class="py-2 pr-3 capitalize" x-text="u.role"></td>
+                        <td class="py-2 pr-3" x-text="u.team || ''"></td>
+                        <td class="py-2 pr-3">
+                          <button
+                            @click="if (confirm('Delete token ' + u.token + '?')) $store.app.deleteUser(u.token)"
+                            class="text-rose-600 hover:underline text-xs"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+             SPRINT TAB (with Hacker promotion)
+             ============================================================ -->
+          <section x-show="tab === 'sprint'" class="space-y-6">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-2">Current sprint</h2>
+              <div
+                class="text-4xl font-bold"
+                x-text="'Sprint ' + $store.app.gameState.current_sprint"
+              ></div>
+              <div class="text-sm text-slate-600 mt-1">
+                <template x-if="$store.app.gameState.current_sprint === 1">
+                  <span>Waterfall. Strict silos. Hacker inactive.</span>
+                </template>
+                <template x-if="$store.app.gameState.current_sprint === 2">
+                  <span
+                    >Agile with security failures. Hacker active. Promote
+                    participants below.</span
+                  >
+                </template>
+                <template x-if="$store.app.gameState.current_sprint === 3">
+                  <span
+                    >CI/CD and Containers. Developers may containerize Tasks;
+                    containerized items block hacker injection.</span
+                  >
+                </template>
+              </div>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  @click="if (confirm('Advance to Sprint ' + ($store.app.gameState.current_sprint + 1) + '?')) $store.app.advanceSprint()"
+                  :disabled="$store.app.gameState.current_sprint >= 3"
+                  class="px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Advance Sprint
+                </button>
+                <button
+                  @click="if (confirm('Reset to Sprint 1? This does not delete issues.')) $store.app.resetSprint()"
+                  class="px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[44px]"
+                >
+                  Reset to Sprint 1
+                </button>
+              </div>
+            </div>
+
+            <!-- Hacker management -->
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <div class="flex items-baseline justify-between mb-2">
+                <h2 class="text-lg font-bold">Hacker assignment</h2>
+                <span
+                  class="text-sm text-slate-500"
+                  x-text="'Currently: ' + $store.app.users.filter(u => u.role === 'hacker').length + ' hacker(s)'"
+                ></span>
+              </div>
+              <p class="text-sm text-slate-600 mb-3">
+                In Sprint 2 and 3 one or two participants secretly play as
+                Hacker. They can inject flaws into items in In Progress or
+                Testing (unless Containerized in Sprint 3). Tokens look the same
+                as everyone else's. After promoting someone, notify them
+                privately (in person).
+              </p>
+
+              <h3 class="font-semibold text-sm mt-4 mb-2">
+                Developers (promote to Hacker)
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <template
+                  x-for="u in $store.app.users.filter(u => u.role === 'developer')"
+                  :key="u.token"
+                >
+                  <div
+                    class="flex items-center justify-between p-2 border border-slate-200 rounded-lg"
+                  >
+                    <div class="min-w-0">
+                      <div class="font-mono text-xs" x-text="u.token"></div>
+                      <div class="text-sm truncate">
+                        <span x-text="u.display_name || '(unnamed)'"></span>
+                        <span
+                          class="text-slate-500"
+                          x-text="u.team ? ' · ' + u.team : ''"
+                        ></span>
+                      </div>
+                    </div>
+                    <button
+                      @click="if (confirm('Promote ' + u.token + ' to Hacker? Notify them privately.')) $store.app.promoteToHacker(u.token)"
+                      class="ml-2 px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 min-h-[36px]"
+                    >
+                      Make Hacker
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <h3 class="font-semibold text-sm mt-4 mb-2">Current Hackers</h3>
+              <div class="space-y-2">
+                <template
+                  x-for="u in $store.app.users.filter(u => u.role === 'hacker')"
+                  :key="u.token"
+                >
+                  <div
+                    class="flex items-center justify-between p-2 border border-rose-200 bg-rose-50 rounded-lg"
+                  >
+                    <div>
+                      <span class="font-mono text-xs" x-text="u.token"></span>
+                      <span
+                        class="ml-2 text-sm"
+                        x-text="u.display_name || '(unnamed)'"
+                      ></span>
+                      <span
+                        class="ml-2 text-xs text-slate-500"
+                        x-text="u.team || ''"
+                      ></span>
+                    </div>
+                    <button
+                      @click="if (confirm('Demote back to Developer?')) $store.app.demoteHacker(u.token)"
+                      class="px-3 py-1.5 text-xs border border-slate-300 rounded hover:bg-white min-h-[36px]"
+                    >
+                      Demote
+                    </button>
+                  </div>
+                </template>
+                <template
+                  x-if="$store.app.users.filter(u => u.role === 'hacker').length === 0"
+                >
+                  <div class="text-sm text-slate-500 italic">
+                    No hackers currently assigned.
+                  </div>
+                </template>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+             CONFIG TAB
+             ============================================================ -->
+          <section x-show="tab === 'config'" class="space-y-6">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-4">Session configuration</h2>
+              <template x-if="!configDraft">
+                <p class="text-sm text-slate-500 italic">
+                  Loading configuration…
+                </p>
+              </template>
+              <div class="space-y-4" x-show="configDraft">
+                <div>
+                  <label class="block text-sm font-medium mb-1"
+                    >Session label</label
+                  >
+                  <input
+                    x-model="configDraft.session_label"
+                    type="text"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-sm font-medium mb-1"
+                      >Security modulus</label
+                    >
+                    <input
+                      x-model.number="configDraft.security_modulus"
+                      type="number"
+                      min="2"
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    />
+                    <p class="text-xs text-slate-500 mt-1">
+                      Issue IDs divisible by this have a deterministic flaw.
+                      Default 7.
+                    </p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-1"
+                      >Hacker count</label
+                    >
+                    <input
+                      x-model.number="configDraft.hacker_count"
+                      type="number"
+                      min="0"
+                      max="5"
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    />
+                    <p class="text-xs text-slate-500 mt-1">
+                      Informational. Actual hackers are assigned from the Sprint
+                      tab.
+                    </p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-1"
+                      >Sprint 3 auto-advance (sec)</label
+                    >
+                    <input
+                      x-model.number="configDraft.sprint3_auto_advance_seconds"
+                      type="number"
+                      min="0"
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    />
+                    <p class="text-xs text-slate-500 mt-1">
+                      0 disables. Stretch goal, not yet enforced in UI.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  @click="$store.app.updateGameState(configDraft)"
+                  class="px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]"
+                >
+                  Save configuration
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+             HACKER LOG TAB
+             ============================================================ -->
+          <section x-show="tab === 'log'" class="space-y-6">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-4">Hacker activity log</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div class="p-3 bg-slate-100 rounded-lg">
+                  <div
+                    class="text-2xl font-bold"
+                    x-text="$store.app.hackerStats().total"
+                  ></div>
+                  <div class="text-xs text-slate-600">Injections</div>
+                </div>
+                <div class="p-3 bg-emerald-100 rounded-lg">
+                  <div
+                    class="text-2xl font-bold"
+                    x-text="$store.app.hackerStats().caught"
+                  ></div>
+                  <div class="text-xs text-emerald-900">Caught by Security</div>
+                </div>
+                <div class="p-3 bg-rose-100 rounded-lg">
+                  <div
+                    class="text-2xl font-bold"
+                    x-text="$store.app.hackerStats().leaked"
+                  ></div>
+                  <div class="text-xs text-rose-900">Leaked past Security</div>
+                </div>
+                <div class="p-3 bg-amber-100 rounded-lg">
+                  <div
+                    class="text-2xl font-bold"
+                    x-text="$store.app.hackerStats().pending"
+                  ></div>
+                  <div class="text-xs text-amber-900">Pending</div>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="text-left text-slate-600">
+                    <tr>
+                      <th class="py-2 pr-3">When</th>
+                      <th class="py-2 pr-3">Hacker</th>
+                      <th class="py-2 pr-3">Issue</th>
+                      <th class="py-2 pr-3">Sprint</th>
+                      <th class="py-2 pr-3">Outcome</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="l in $store.app.hackerLog" :key="l.id">
+                      <tr class="border-t border-slate-200">
+                        <td
+                          class="py-2 pr-3 text-xs text-slate-500"
+                          x-text="new Date(l.created_at).toLocaleTimeString()"
+                        ></td>
+                        <td
+                          class="py-2 pr-3 font-mono text-xs"
+                          x-text="l.hacker_token"
+                        ></td>
+                        <td
+                          class="py-2 pr-3 font-mono text-xs"
+                          x-text="'#' + l.target_issue_id"
+                        ></td>
+                        <td class="py-2 pr-3" x-text="l.sprint"></td>
+                        <td class="py-2 pr-3">
+                          <template x-if="l.caught_by_security === true">
+                            <span
+                              class="px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800"
+                              >Caught</span
+                            >
+                          </template>
+                          <template x-if="l.caught_by_security === false">
+                            <span
+                              class="px-2 py-0.5 text-xs rounded-full bg-rose-100 text-rose-800"
+                              >Leaked</span
+                            >
+                          </template>
+                          <template x-if="l.caught_by_security === null">
+                            <span
+                              class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800"
+                              >Pending</span
+                            >
+                          </template>
+                        </td>
+                      </tr>
+                    </template>
+                    <template x-if="$store.app.hackerLog.length === 0">
+                      <tr>
+                        <td
+                          colspan="5"
+                          class="py-4 text-sm text-slate-500 italic text-center"
+                        >
+                          No injections yet.
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+             BOARD TAB (read-only global view)
+             ============================================================ -->
+          <section x-show="tab === 'board'" class="space-y-3">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-3">Global board (read-only)</h2>
+              <p class="text-sm text-slate-600 mb-4">
+                Open
+                <a href="index.html" class="text-sky-600 underline"
+                  >index.html</a
+                >
+                in another tab for the full interactive view.
+              </p>
+              <div class="overflow-x-auto snap-x snap-mandatory sm:snap-none">
+                <div class="flex gap-3 min-h-[200px]">
+                  <template
+                    x-for="status in $store.app.columnOrder()"
+                    :key="status"
+                  >
+                    <div
+                      class="snap-start shrink-0 w-[85vw] sm:w-64 bg-slate-100 rounded-lg p-2"
+                    >
+                      <div
+                        class="font-semibold text-sm mb-2 flex justify-between"
+                      >
+                        <span x-text="$store.app.columnLabel(status)"></span>
+                        <span
+                          class="text-slate-500"
+                          x-text="$store.app.issuesInColumn(status).length"
+                        ></span>
+                      </div>
+                      <div class="space-y-1.5">
+                        <template
+                          x-for="issue in $store.app.issuesInColumn(status)"
+                          :key="issue.id"
+                        >
+                          <div
+                            class="p-2 bg-white rounded border border-slate-200 text-xs"
+                          >
+                            <span class="font-mono text-slate-400"
+                              >#<span x-text="issue.id"></span
+                            ></span>
+                            <span class="ml-1" x-text="issue.title"></span>
+                            <template x-if="issue.team">
+                              <span
+                                class="ml-1 text-slate-500"
+                                x-text="'(' + issue.team + ')'"
+                              ></span>
+                            </template>
+                            <template x-if="issue.hacked_flag">
+                              <span class="ml-1 text-rose-600 font-bold"
+                                >[!]</span
+                              >
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">
+                <span class="text-rose-600 font-bold">[!]</span> indicates an
+                injected flaw (visible only in this admin view).
+              </p>
+            </div>
+          </section>
+
+          <!-- ============================================================
+             RESET TAB
+             ============================================================ -->
+          <section x-show="tab === 'reset'" class="space-y-6">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-3">Reset controls</h2>
+              <div class="space-y-4">
+                <div class="p-4 border border-amber-200 bg-amber-50 rounded-lg">
+                  <h3 class="font-semibold">Reset issues and tasks</h3>
+                  <p class="text-sm text-slate-600 mt-1">
+                    Clears the Kanban board. Keeps users and configuration.
+                  </p>
+                  <button
+                    @click="if (confirm('Clear all issues, tasks, and hacker log?')) $store.app.resetIssuesAndTasks()"
+                    class="mt-3 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 min-h-[44px]"
+                  >
+                    Reset Issues and Tasks
+                  </button>
+                </div>
+
+                <div class="p-4 border border-rose-200 bg-rose-50 rounded-lg">
+                  <h3 class="font-semibold">Reset everything</h3>
+                  <p class="text-sm text-slate-600 mt-1">
+                    Wipes all data except the facilitator token and the game
+                    state row.
+                  </p>
+                  <button
+                    @click="if (confirm('Delete ALL users (except facilitator), issues, tasks, and hacker log?\n\nThis cannot be undone.')) $store.app.resetEverything()"
+                    class="mt-3 px-4 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700 min-h-[44px]"
+                  >
+                    Reset Everything
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+             EXPORT TAB
+             ============================================================ -->
+          <section x-show="tab === 'export'" class="space-y-6">
+            <div
+              class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6"
+            >
+              <h2 class="text-lg font-bold mb-2">Export game state</h2>
+              <p class="text-sm text-slate-600 mb-4">
+                Downloads a single JSON file containing the full session state
+                (users, issues, tasks, hacker log, configuration). Use this for
+                the post-session retrospective.
+              </p>
+              <button
+                @click="$store.app.exportStateJSON()"
+                class="px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]"
+              >
+                Download JSON
+              </button>
+            </div>
+          </section>
+        </main>
+
+        <!-- Toast -->
+        <div
+          x-show="$store.app.toastMsg"
+          x-transition.opacity
+          class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
+          x-text="$store.app.toastMsg"
+        ></div>
+      </div>
+    </template>
+  </body>
+</html>
