@@ -4,12 +4,12 @@ This document covers how to exercise every user flow without logging in and out 
 
 ## Quick reference
 
-| Need                                         | Use                                                  |
-| -------------------------------------------- | ---------------------------------------------------- |
-| Prove a feature works in seconds             | `tests.html` and click the relevant test            |
-| Watch the board animate as tests run         | `tests.html` in one tab, `index.html` in another    |
+| Need                                         | Use                                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| Prove a feature works in seconds             | `tests.html` and click the relevant test                                  |
+| Watch the board animate as tests run         | `tests.html` in one tab, `index.html` in another                          |
 | Act as any role without re-logging in        | Log in on `index.html` as facilitator, use the footer **simulate** picker |
-| Full pen-and-paper walkthrough for a session | The role-by-role section below                      |
+| Full pen-and-paper walkthrough for a session | The role-by-role section below                                            |
 
 ---
 

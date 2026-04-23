@@ -1,0 +1,9 @@
+{
+  "bracketSpacing": false,
+  "bracketSameLine": true,
+  "objectWrap": "collapse",
+  "printWidth": 120,
+  "singleAttributePerLine": false,
+  "wrapAttributes": "preserve",
+  "htmlWhitespaceSensitivity": "ignore"
+}

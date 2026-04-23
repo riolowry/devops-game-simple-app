@@ -7,7 +7,7 @@
 //
 // Usage:
 //   guide.html?doc=PARTICIPANT_GUIDE.md
-//   guide.html?doc=testing.md&title=Tester+manual
+//   guide.html?doc=TESTING.MD&title=Tester+manual
 // ----------------------------------------------------------------------
 (function () {
   "use strict";
@@ -18,7 +18,7 @@
   const ALLOWED = {
     "PARTICIPANT_GUIDE.md": "Participant guide",
     "FACILITATOR_GUIDE.md": "Facilitator guide",
-    "testing.md": "Testing guide",
+    "TESTING.MD": "Testing guide",
     "README.md": "README",
     "SETUP_CLOUDFLARE_DEPLOYMENT.md": "Deployment guide",
     "SETUP_SUPABASE_DB.md": "Supabase setup",
