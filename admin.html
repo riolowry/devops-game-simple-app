@@ -166,7 +166,7 @@
                   <option value="tester">Tester</option>
                   <option value="security">Security</option>
                   <option value="release">Release</option>
-                  <option value="admin">Admin (read-only)</option>
+                  <option value="observer">Observer (read-only)</option>
                   <option value="facilitator">Facilitator</option>
                 </select>
                 <input
@@ -197,8 +197,9 @@
                 One per line. Format: <code>name, role, team</code> (name and
                 team optional). Valid roles: <code>business</code>,
                 <code>developer</code>, <code>tester</code>,
-                <code>security</code>, <code>release</code>, <code>admin</code>,
-                <code>facilitator</code>. Role case does not matter (lowercased
+                <code>security</code>, <code>release</code>,
+                <code>observer</code>, <code>facilitator</code>. Teams may be
+                assigned to any role. Role case does not matter (lowercased
                 automatically).
               </p>
               <textarea
@@ -341,14 +342,16 @@
                 </template>
                 <template x-if="$store.app.gameState.current_sprint === 2">
                   <span
-                    >Agile with security failures. Hacker active. Promote
-                    participants below.</span
+                    >Agile with security failures. Hacker active on any
+                    pipeline item (in progress through to deploy), regardless
+                    of team. Promote participants below.</span
                   >
                 </template>
                 <template x-if="$store.app.gameState.current_sprint === 3">
                   <span
                     >CI/CD and Containers. Developers may containerize Tasks;
-                    containerized items block hacker injection.</span
+                    containerized items block hacker injection. Everything
+                    else remains hackable.</span
                   >
                 </template>
               </div>
@@ -382,18 +385,24 @@
               </div>
               <p class="text-sm text-slate-600 mb-3">
                 In Sprint 2 and 3 one or two participants secretly play as
-                Hacker. They can inject flaws into items in In Progress or
-                Testing (unless Containerized in Sprint 3). Tokens look the same
-                as everyone else's. After promoting someone, notify them
-                privately (in person).
+                Hacker. They can inject flaws into any pipeline item (in
+                progress, testing, security review, or awaiting release),
+                regardless of which team owns it, unless the item is
+                Containerized in Sprint 3. Tokens look the same as everyone
+                else's. After promoting someone, notify them privately (in
+                person).
               </p>
 
               <h3 class="font-semibold text-sm mt-4 mb-2">
-                Developers (promote to Hacker)
+                Eligible participants (promote to Hacker)
               </h3>
+              <p class="text-xs text-slate-500 mb-2">
+                Any participant role can be promoted. Their previous role
+                is recorded and restored on demote.
+              </p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <template
-                  x-for="u in $store.app.users.filter(u => u.role === 'developer')"
+                  x-for="u in $store.app.users.filter(u => ['business','developer','tester','security','release','observer'].includes(u.role))"
                   :key="u.token"
                 >
                   <div
@@ -404,13 +413,13 @@
                       <div class="text-sm truncate">
                         <span x-text="u.display_name || '(unnamed)'"></span>
                         <span
-                          class="text-slate-500"
-                          x-text="u.team ? ' · ' + u.team : ''"
+                          class="text-slate-500 text-xs"
+                          x-text="' · ' + u.role + (u.team ? ' · ' + u.team : '')"
                         ></span>
                       </div>
                     </div>
                     <button
-                      @click="if (confirm('Promote ' + u.token + ' to Hacker? Notify them privately.')) $store.app.promoteToHacker(u.token)"
+                      @click="if (confirm('Promote ' + u.token + ' (' + u.role + ') to Hacker? Notify them privately.')) $store.app.promoteToHacker(u.token)"
                       class="ml-2 px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 min-h-[36px]"
                     >
                       Make Hacker
@@ -436,11 +445,11 @@
                       ></span>
                       <span
                         class="ml-2 text-xs text-slate-500"
-                        x-text="u.team || ''"
+                        x-text="(u.team ? u.team + ' · ' : '') + 'was ' + (u.previous_role || 'developer')"
                       ></span>
                     </div>
                     <button
-                      @click="if (confirm('Demote back to Developer?')) $store.app.demoteHacker(u.token)"
+                      @click="if (confirm('Demote back to ' + (u.previous_role || 'developer') + '?')) $store.app.demoteHacker(u.token)"
                       class="px-3 py-1.5 text-xs border border-slate-300 rounded hover:bg-white min-h-[36px]"
                     >
                       Demote

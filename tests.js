@@ -551,6 +551,97 @@
         ctx.log("  ✓ hacker scope matches professor's spec");
       },
     },
+    {
+      id: "fe-create-issue-permission",
+      name: "Frontend: create_issue permission respects facilitator impersonation",
+      category: "frontend",
+      description:
+        "Regression test for the bug where createIssue checked this.user.role directly, rejecting a facilitator simulating as Business.",
+      async run(ctx) {
+        const canAct = window.App.logic.canAct;
+        const biz = { role: "business", team: null };
+        const dev = { role: "developer", team: "Team 1" };
+        const facil = { role: "facilitator", team: null };
+        const gs = { current_sprint: 1 };
+
+        assert(
+          canAct(biz, null, null, "create_issue", { gameState: gs }),
+          "business can create",
+        );
+        assert(
+          !canAct(dev, null, null, "create_issue", { gameState: gs }),
+          "developer cannot create",
+        );
+        // The bug: without impersonation, facilitator is NOT business.
+        assert(
+          !canAct(facil, null, null, "create_issue", { gameState: gs }),
+          "facilitator observing cannot create",
+        );
+        assert(
+          !canAct(facil, { role: "", team: "" }, null, "create_issue", {
+            gameState: gs,
+          }),
+          "facilitator with blank impersonation cannot create",
+        );
+        // The fix: facilitator simulating as business CAN create.
+        assert(
+          canAct(
+            facil,
+            { role: "business", team: "" },
+            null,
+            "create_issue",
+            { gameState: gs },
+          ),
+          "facilitator simulating as business CAN create (the fix)",
+        );
+        // A non-facilitator cannot escalate via impersonation.
+        assert(
+          !canAct(dev, { role: "business", team: "" }, null, "create_issue", {
+            gameState: gs,
+          }),
+          "developer cannot escalate to business via impersonation",
+        );
+        ctx.log("  ✓ create_issue goes through canAct; simulation honored");
+      },
+    },
+    {
+      id: "fe-impersonation-team-propagation",
+      name: "Frontend: effectiveTeam propagates to team-scoped actions",
+      category: "frontend",
+      description:
+        "Verifies a facilitator simulating as a developer on Team 2 is treated as Team 2 for add_task/send_to_testing (and that the 'Claim for X' button text uses effectiveTeam).",
+      async run(ctx) {
+        const canAct = window.App.logic.canAct;
+        const effectiveTeam = window.App.logic.effectiveTeam;
+        const facil = { role: "facilitator", team: null };
+        const imp = { role: "developer", team: "Team 2" };
+        const gs = { current_sprint: 1 };
+        const t2Issue = {
+          id: 100, status: "in_progress", team: "Team 2", batch_size: 1,
+        };
+        const t1Issue = {
+          id: 101, status: "in_progress", team: "Team 1", batch_size: 1,
+        };
+
+        assert(effectiveTeam(facil, imp) === "Team 2", "effective team Team 2");
+        assert(
+          canAct(facil, imp, t2Issue, "add_task", { gameState: gs, tasks: [] }),
+          "facil-as-dev-T2 can add task to T2 issue",
+        );
+        assert(
+          !canAct(facil, imp, t1Issue, "add_task", { gameState: gs, tasks: [] }),
+          "facil-as-dev-T2 cannot add task to T1 issue",
+        );
+        const complete = [{ parent_issue_id: 100, status: "complete" }];
+        assert(
+          canAct(facil, imp, t2Issue, "send_to_testing", {
+            gameState: gs, tasks: complete,
+          }),
+          "facil-as-dev-T2 can send T2 issue with batch gate open",
+        );
+        ctx.log("  ✓ team-scoped actions honor impersonation.team");
+      },
+    },
 
     {
       id: "u-create-user",

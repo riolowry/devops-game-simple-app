@@ -264,17 +264,27 @@
                   <h2 class="text-xl font-bold" x-text="openIssue.title"></h2>
                   <div class="mt-1 text-xs text-slate-500">
                     <span x-text="'Sprint ' + openIssue.sprint_created"></span>
-                    <template x-if="openIssue.team">
-                      <span> · Team: <span x-text="openIssue.team"></span></span>
-                    </template>
                   </div>
                 </div>
                 <button @click="openIssue = null; $store.app.securityCheckResult = null"
                         class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
               </div>
 
-              <!-- Badges -->
-              <div class="flex flex-wrap gap-2">
+              <!-- Badges. Team is promoted to a prominent, color-coded badge
+                   so developers (and simulating facilitators) can see at a
+                   glance which team owns this ticket. -->
+              <div class="flex flex-wrap gap-2 items-center">
+                <template x-if="openIssue.team">
+                  <span class="text-sm px-3 py-1 rounded-full font-semibold"
+                        :class="$store.app.teamColor(openIssue.team)">
+                    <span x-text="openIssue.team"></span>
+                  </span>
+                </template>
+                <template x-if="!openIssue.team">
+                  <span class="text-sm px-3 py-1 rounded-full bg-slate-200 text-slate-600 italic">
+                    Unclaimed
+                  </span>
+                </template>
                 <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700"
                       x-text="$store.app.columnLabel(openIssue.status)"></span>
                 <span class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800"
@@ -285,6 +295,24 @@
                   <span class="text-xs px-2 py-1 rounded-full bg-cyan-100 text-cyan-800">Containerized</span>
                 </template>
               </div>
+
+              <!-- Facilitator-only: if this issue belongs to a team and the
+                   facilitator is not currently simulating that team, offer a
+                   one-click switch so they can act on the ticket without
+                   reaching for the footer picker. Silent for everyone else. -->
+              <template x-if="$store.app.isFacilitator() && openIssue.team && $store.app.effectiveTeam() !== openIssue.team">
+                <div class="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between gap-2">
+                  <span>
+                    This ticket belongs to <strong x-text="openIssue.team"></strong>.
+                    You are currently simulating
+                    <strong x-text="$store.app.effectiveTeam() || '(no team)'"></strong>.
+                  </span>
+                  <button @click="$store.app.setImpersonation({ team: openIssue.team })"
+                          class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap">
+                    Simulate as <span x-text="openIssue.team"></span>
+                  </button>
+                </div>
+              </template>
 
               <!-- Description URL -->
               <template x-if="openIssue.description_url">
@@ -408,7 +436,7 @@
                 <template x-if="$store.app.canAct(openIssue, 'claim')">
                   <button @click="$store.app.claimIssue(openIssue)"
                           class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]">
-                    Claim for <span x-text="$store.app.user.team || 'my team'"></span>
+                    Claim for <span x-text="$store.app.effectiveTeam() || '(pick a team in the footer)'"></span>
                   </button>
                 </template>
 

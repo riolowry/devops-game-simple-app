@@ -189,14 +189,23 @@
 
   // canAct: pure permission check. ctx is { gameState, tasks, securityCheckResult }.
   // Kept deliberately dumb: no side effects, no store reads.
+  // For actions that operate on an issue, pass the issue. For actions
+  // that do not (create_issue), issue may be null.
   function logic_canAct(user, impersonation, issue, action, ctx) {
-    if (!user || !issue) return false;
+    if (!user) return false;
     const role = logic_effectiveRole(user, impersonation);
     const team = logic_effectiveTeam(user, impersonation);
-    const s = issue.status;
     const gs = (ctx && ctx.gameState) || {};
     const tasks = (ctx && ctx.tasks) || [];
     const scr = ctx && ctx.securityCheckResult;
+
+    // Actions that do not require an issue.
+    if (action === "create_issue") {
+      return role === "business";
+    }
+
+    if (!issue) return false;
+    const s = issue.status;
 
     switch (action) {
       case "claim":
@@ -665,7 +674,11 @@
 
       // -------- issue actions --------
       async createIssue({ title, description_url, price, batch_size }) {
-        if (!this.user || this.user.role !== "business") {
+        // Delegate to canAct so the single source of truth (logic_canAct)
+        // decides. This fixes the bug where a facilitator simulating as
+        // Business was rejected because the old check read this.user.role
+        // directly, ignoring impersonation.
+        if (!this.canAct(null, "create_issue")) {
           this.toast("Only Business can create Product Requests.");
           return;
         }
@@ -676,6 +689,9 @@
           price: parseInt(price) || 100,
           batch_size: Math.max(1, parseInt(batch_size) || 1),
           sprint_created: this.gameState.current_sprint,
+          // created_by is intentionally the real token, not the
+          // impersonated one: the audit trail must show who actually
+          // performed the action.
           created_by: this.user.token,
         });
         if (error) {

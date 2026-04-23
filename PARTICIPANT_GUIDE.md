@@ -53,16 +53,16 @@ In Sprint 3 you can mark your Tasks as **Containerized** when you create them. C
 
 - In **To Deploy**: open a card and click **Deploy to Production**.
 
-### Admin
+### Observer
 
-- You can see the whole board but cannot take actions. Observer role.
+- You can see the whole board but cannot take actions. Watcher role. Your team (if you have one) is informational only.
 
 ## Sprints
 
 Three sprints. Behaviour changes in each.
 
 - **Sprint 1** Waterfall. Everyone stays strictly in their column. Hand-offs are explicit and slow. This is on purpose. Feel the pain.
-- **Sprint 2** Agile. Cross-role collaboration is allowed. Also: some participants have been secretly assigned as Hackers. They can inject security flaws into items in In Progress or Testing. Security has to catch them.
+- **Sprint 2** Agile. Cross-role collaboration is allowed. Also: some participants have been secretly assigned as Hackers. Hackers can be drawn from any role (not just Developers). They can inject security flaws into any item across the active pipeline (In Progress, Testing, Security, or To Deploy), on any team. Security has to catch them.
 - **Sprint 3** CI/CD and Containers. Developers can mark Tasks as Containerized, which protects them from Hacker tampering. Sprint moves faster.
 
 ## Security flaws

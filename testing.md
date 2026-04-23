@@ -218,6 +218,8 @@ No configuration, no conditional branching. Release is the simplest role.
 - **Conference Wi-Fi may block WebSockets.** The app falls back to polling after 3 seconds. The header indicator turns from green to yellow. Functionality is unchanged.
 - **Client-side role enforcement.** Someone who opens DevTools can write directly to the DB via the anon key. Documented as trust-based. A determined student can break the game. This is acceptable for a classroom exercise and, frankly, itself a teachable moment.
 - **Issue acceptance used to wipe retro data.** Fixed: `acceptProduction()` now nulls the `hacker_log.target_issue_id` FK before deleting the issue, so the cascade does not delete the log row. If you wrote your own version of the app before this fix, the test `e2e-security-misses` will reveal the regression.
+- **Facilitator simulation previously short-circuited on write actions.** Fixed: `createIssue` now goes through `canAct('create_issue')` instead of reading `this.user.role` directly, so a facilitator simulating as Business can actually create Product Requests. `claimIssue` and `canAct` already used effective role/team; this was the outlier. If you wrote your own version before this fix, the `fe-create-issue-permission` frontend test will catch the regression.
+- **Dev team attribution on tickets.** The ticket detail modal shows the team as a prominent color-coded badge (previously faint "Team: X" text). For facilitators whose simulated team does not match, a one-click "Simulate as <team>" chip appears in the modal so swapping teams is instant.
 
 ---
 

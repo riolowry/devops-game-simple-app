@@ -21,9 +21,14 @@ CREATE TABLE users (
   display_name TEXT,
   role TEXT NOT NULL CHECK (role IN (
     'business', 'developer', 'tester', 'security',
-    'release', 'admin', 'hacker', 'facilitator'
+    'release', 'observer', 'hacker', 'facilitator'
   )),
   team TEXT,
+  -- When a participant is promoted to 'hacker', their prior role is
+  -- stashed here so demote can restore it. Without this column, demote
+  -- would have to guess (and historically, incorrectly always returned
+  -- to 'developer').
+  previous_role TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

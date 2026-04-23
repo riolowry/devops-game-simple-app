@@ -38,7 +38,7 @@ The commas matter. Empty positions are fine.
 
 **Suggested role distribution for 20 participants:**
 
-- 2 Business (or 1 Business + 1 Admin as an observer)
+- 2 Business (or 1 Business + 1 Observer as a watcher)
 - 2 teams of 3 to 4 Developers each
 - 1 Tester per team
 - 1 or 2 Security
@@ -58,13 +58,13 @@ Keep a master list (the CSV you just created) so you know who has which token, e
 
 ### 6. Decide Hacker candidates
 
-Do not promote them yet. Just mentally pick one or two Developers who will become Hackers at Sprint 2. Ideally pick participants who will enjoy the role and not give it away.
+Do not promote them yet. Just mentally pick one or two participants who will become Hackers at Sprint 2. Any participant role is eligible (Business, Developer, Tester, Security, Release, Observer), and a non-Developer hacker is often more interesting for the exercise. Ideally pick participants who will enjoy the role and not give it away.
 
 ## At session start
 
 ### 1. Project the board
 
-On the main screen, open `admin.html` → **Board tab** for a facilitator-eye view, or use a second browser/tab with `index.html` logged in as an Admin role.
+On the main screen, open `admin.html` → **Board tab** for a facilitator-eye view, or use a second browser/tab with `index.html` logged in as an Observer role.
 
 ### 2. Distribute tokens
 
@@ -88,8 +88,8 @@ Sprint 1 is Waterfall. Everyone stays strictly in their own column. Business sho
 ### Sprint 1 to Sprint 2
 
 1. Announce you are switching to Agile. Silos are relaxed: Developers can now help test, Testers can flag security concerns, etc. In the app this is documented but not enforced, so it is mostly a cultural shift.
-2. Privately approach your Hacker candidate(s). Tell them they are the Hacker for this sprint. Their job is to inject flaws into items in In Progress or Testing by opening the card and clicking **Inject Flaw**. Security's job is to catch these before they reach Production.
-3. Back at the admin panel: **Sprint tab** → find the candidate in the Developers list → **Make Hacker**. Their role changes silently. Their token works exactly the same.
+2. Privately approach your Hacker candidate(s). Tell them they are the Hacker for this sprint. Their job is to inject flaws into any item in the active pipeline (In Progress, Testing, Security, or To Deploy) on any team, by opening the card and clicking **Inject Flaw**. Security's job is to catch these before they reach Production.
+3. Back at the admin panel: **Sprint tab** → find the candidate in the **Eligible participants** list → **Make Hacker**. Any role is promotable (not just Developers). Their prior role is recorded and restored on demote. Their token works exactly the same.
 4. Click **Advance Sprint**.
 5. Run Sprint 2 for 20 to 25 minutes.
 
@@ -148,7 +148,7 @@ You can leave the Supabase project running. The free tier has no ongoing costs. 
 |---|---|
 | Make tokens | Admin → Users |
 | Bulk import a roster | Admin → Users → Bulk create |
-| Promote a Hacker | Admin → Sprint → Developers list → Make Hacker |
+| Promote a Hacker | Admin → Sprint → Eligible participants list → Make Hacker |
 | Advance the sprint | Admin → Sprint → Advance Sprint |
 | Tune flaw rate | Admin → Config → Security modulus |
 | Watch hacker activity | Admin → Log |
