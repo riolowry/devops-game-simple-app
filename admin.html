@@ -113,6 +113,14 @@
               x-text="'Sprint ' + $store.app.gameState.current_sprint"
             ></span>
             <a
+              href="guide.html?doc=FACILITATOR_GUIDE.md"
+              target="_blank"
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] flex items-center"
+              title="Open the facilitator guide and other project docs in a new tab"
+            >
+              Guides
+            </a>
+            <a
               href="index.html"
               class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] flex items-center"
             >
@@ -342,16 +350,16 @@
                 </template>
                 <template x-if="$store.app.gameState.current_sprint === 2">
                   <span
-                    >Agile with security failures. Hacker active on any
-                    pipeline item (in progress through to deploy), regardless
-                    of team. Promote participants below.</span
+                    >Agile with security failures. Hacker active on any pipeline
+                    item (in progress through to deploy), regardless of team.
+                    Promote participants below.</span
                   >
                 </template>
                 <template x-if="$store.app.gameState.current_sprint === 3">
                   <span
                     >CI/CD and Containers. Developers may containerize Tasks;
-                    containerized items block hacker injection. Everything
-                    else remains hackable.</span
+                    containerized items block hacker injection. Everything else
+                    remains hackable.</span
                   >
                 </template>
               </div>
@@ -397,8 +405,8 @@
                 Eligible participants (promote to Hacker)
               </h3>
               <p class="text-xs text-slate-500 mb-2">
-                Any participant role can be promoted. Their previous role
-                is recorded and restored on demote.
+                Any participant role can be promoted. Their previous role is
+                recorded and restored on demote.
               </p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <template

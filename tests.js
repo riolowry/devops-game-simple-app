@@ -31,7 +31,7 @@
         '<div style="font-family:system-ui;max-width:600px;margin:4rem auto;padding:1rem;">' +
         "<h1>Configuration required</h1>" +
         "<p>Create <code>config.js</code> from <code>config.example.js</code>. " +
-        "See SUPABASE_SETUP.md.</p></div>";
+        "See SETUP_SUPABASE_DB.md.</p></div>";
     });
     return;
   }
@@ -104,8 +104,13 @@
       if (error) throw new Error("createUser: " + error.message);
       this.users.push(data);
       this.log(
-        "  + user " + displayName + " [" + role + (team ? "/" + team : "") +
-          "] token " + token,
+        "  + user " +
+          displayName +
+          " [" +
+          role +
+          (team ? "/" + team : "") +
+          "] token " +
+          token,
       );
       return data;
     }
@@ -135,7 +140,10 @@
     }
 
     async updateIssue(id, patch) {
-      const { error } = await supabase.from("issues").update(patch).eq("id", id);
+      const { error } = await supabase
+        .from("issues")
+        .update(patch)
+        .eq("id", id);
       if (error) throw new Error("updateIssue: " + error.message);
       this.log("  ~ issue #" + id + " " + JSON.stringify(patch));
     }
@@ -189,11 +197,73 @@
       const { error } = await supabase.from("hacker_log").insert(payload);
       if (error) throw new Error("logHackerAttempt: " + error.message);
     }
+
+    // ---- game_state helpers -------------------------------------------
+    // Sprint-advancing tests must never leave the real session state in
+    // a mutated sprint. Use snapshotGameState() at the start of a test
+    // that will mutate game_state, then the runner's finally block will
+    // auto-restore via restoreGameState() even if the test throws.
+    async fetchGameState() {
+      const { data, error } = await supabase
+        .from("game_state")
+        .select("*")
+        .eq("id", 1)
+        .single();
+      if (error) throw new Error("fetchGameState: " + error.message);
+      return data;
+    }
+
+    async updateGameState(patch) {
+      const { error } = await supabase
+        .from("game_state")
+        .update(patch)
+        .eq("id", 1);
+      if (error) throw new Error("updateGameState: " + error.message);
+      this.log("  ~ game_state " + JSON.stringify(patch));
+    }
+
+    async snapshotGameState() {
+      const gs = await this.fetchGameState();
+      // Keep only the columns we might mutate. If we snapshotted the
+      // whole row we would write back id, created_at, etc. which is
+      // fine but noisy.
+      this._gsSnapshot = {
+        current_sprint: gs.current_sprint,
+        security_modulus: gs.security_modulus,
+        hacker_count: gs.hacker_count,
+        sprint3_auto_advance_seconds: gs.sprint3_auto_advance_seconds,
+        session_label: gs.session_label,
+      };
+      this.log(
+        "  [snapshot] game_state sprint=" +
+          gs.current_sprint +
+          " modulus=" +
+          gs.security_modulus +
+          " hackers=" +
+          gs.hacker_count,
+      );
+      return this._gsSnapshot;
+    }
+
+    async restoreGameState() {
+      if (!this._gsSnapshot) return;
+      const snap = this._gsSnapshot;
+      const { error } = await supabase
+        .from("game_state")
+        .update(snap)
+        .eq("id", 1);
+      if (error) {
+        this.log("  \u2717 restore game_state FAILED: " + error.message);
+        throw new Error("restoreGameState: " + error.message);
+      }
+      this.log("  [restored] game_state sprint=" + snap.current_sprint);
+      this._gsSnapshot = null;
+    }
   }
 
   // ==========================================================
   // Tests
-  // Categories: setup, unit, e2e, cleanup
+  // Categories: setup, frontend, unit, e2e, sprint, cleanup
   // ==========================================================
   const tests = [
     // ---------- setup ----------
@@ -226,7 +296,10 @@
           .single();
         if (error) throw new Error(error.message);
         ctx.log(
-          "  sprint=" + data.current_sprint + " modulus=" + data.security_modulus,
+          "  sprint=" +
+            data.current_sprint +
+            " modulus=" +
+            data.security_modulus,
         );
         assert(data.id === 1, "game_state.id must be 1");
       },
@@ -408,9 +481,17 @@
         const release = { role: "release", team: null };
         const observer = { role: "observer", team: null };
         const gs = { current_sprint: 1 };
-        const unclaimed = { id: 1, status: "market", team: null, batch_size: 1 };
+        const unclaimed = {
+          id: 1,
+          status: "market",
+          team: null,
+          batch_size: 1,
+        };
         const t1InProg = {
-          id: 2, status: "in_progress", team: "Team 1", batch_size: 2,
+          id: 2,
+          status: "in_progress",
+          team: "Team 1",
+          batch_size: 2,
         };
         const t1Testing = { id: 3, status: "testing", team: "Team 1" };
         const t1Security = { id: 4, status: "security", team: "Team 1" };
@@ -418,17 +499,32 @@
         const t1Prod = { id: 6, status: "in_production", team: "Team 1" };
 
         // Claim: only developers, only on market, only if unclaimed
-        assert(canAct(dev1, null, unclaimed, "claim", { gameState: gs }), "dev can claim");
-        assert(!canAct(tester, null, unclaimed, "claim", { gameState: gs }), "tester cannot claim");
-        assert(!canAct(dev1, null, t1InProg, "claim", { gameState: gs }), "cannot claim in_progress");
+        assert(
+          canAct(dev1, null, unclaimed, "claim", { gameState: gs }),
+          "dev can claim",
+        );
+        assert(
+          !canAct(tester, null, unclaimed, "claim", { gameState: gs }),
+          "tester cannot claim",
+        );
+        assert(
+          !canAct(dev1, null, t1InProg, "claim", { gameState: gs }),
+          "cannot claim in_progress",
+        );
 
         // Team scoping on in_progress
         assert(
-          canAct(dev1, null, t1InProg, "add_task", { gameState: gs, tasks: [] }),
+          canAct(dev1, null, t1InProg, "add_task", {
+            gameState: gs,
+            tasks: [],
+          }),
           "dev1 can add task to Team 1 issue",
         );
         assert(
-          !canAct(dev2, null, t1InProg, "add_task", { gameState: gs, tasks: [] }),
+          !canAct(dev2, null, t1InProg, "add_task", {
+            gameState: gs,
+            tasks: [],
+          }),
           "dev2 cannot add task to Team 1 issue",
         );
 
@@ -439,28 +535,51 @@
         ];
         assert(
           canAct(dev1, null, t1InProg, "send_to_testing", {
-            gameState: gs, tasks: fullTasks,
+            gameState: gs,
+            tasks: fullTasks,
           }),
           "dev1 can send when gate open",
         );
         assert(
           !canAct(dev1, null, t1InProg, "send_to_testing", {
-            gameState: gs, tasks: [],
+            gameState: gs,
+            tasks: [],
           }),
           "dev1 blocked when gate closed",
         );
 
         // Tester, Security, Release scope to their columns
-        assert(canAct(tester, null, t1Testing, "pass_testing", { gameState: gs }), "tester in testing");
-        assert(!canAct(tester, null, t1Security, "pass_testing", { gameState: gs }), "tester not in security");
-        assert(canAct(security, null, t1Security, "run_security", { gameState: gs }), "security in security");
-        assert(canAct(release, null, t1ToDeploy, "deploy", { gameState: gs }), "release in to_deploy");
-        assert(canAct(biz, null, t1Prod, "accept_production", { gameState: gs }), "business in production");
+        assert(
+          canAct(tester, null, t1Testing, "pass_testing", { gameState: gs }),
+          "tester in testing",
+        );
+        assert(
+          !canAct(tester, null, t1Security, "pass_testing", { gameState: gs }),
+          "tester not in security",
+        );
+        assert(
+          canAct(security, null, t1Security, "run_security", { gameState: gs }),
+          "security in security",
+        );
+        assert(
+          canAct(release, null, t1ToDeploy, "deploy", { gameState: gs }),
+          "release in to_deploy",
+        );
+        assert(
+          canAct(biz, null, t1Prod, "accept_production", { gameState: gs }),
+          "business in production",
+        );
 
         // Observer can do nothing
         const allActions = [
-          "claim", "add_task", "send_to_testing", "pass_testing",
-          "run_security", "deploy", "accept_production", "inject_flaw",
+          "claim",
+          "add_task",
+          "send_to_testing",
+          "pass_testing",
+          "run_security",
+          "deploy",
+          "accept_production",
+          "inject_flaw",
         ];
         for (const a of allActions) {
           assert(
@@ -521,9 +640,16 @@
         // Containerized blocks
         assert(
           !canAct(
-            hacker, null,
-            { id: 30, status: "in_progress", team: "Team 1", containerized: true },
-            "inject_flaw", { gameState: s2 },
+            hacker,
+            null,
+            {
+              id: 30,
+              status: "in_progress",
+              team: "Team 1",
+              containerized: true,
+            },
+            "inject_flaw",
+            { gameState: s2 },
           ),
           "containerized blocks injection",
         );
@@ -531,9 +657,11 @@
         // Already-hacked blocks re-inject
         assert(
           !canAct(
-            hacker, null,
+            hacker,
+            null,
             { id: 31, status: "testing", team: "Team 1", hacked_flag: true },
-            "inject_flaw", { gameState: s2 },
+            "inject_flaw",
+            { gameState: s2 },
           ),
           "re-inject blocked while hacked_flag is true",
         );
@@ -541,9 +669,11 @@
         // Facilitator impersonating hacker also can inject
         assert(
           canAct(
-            facilAsHacker, imp,
+            facilAsHacker,
+            imp,
             { id: 32, status: "security", team: "Team 2" },
-            "inject_flaw", { gameState: s2 },
+            "inject_flaw",
+            { gameState: s2 },
           ),
           "facilitator-as-hacker can inject for testing",
         );
@@ -585,13 +715,9 @@
         );
         // The fix: facilitator simulating as business CAN create.
         assert(
-          canAct(
-            facil,
-            { role: "business", team: "" },
-            null,
-            "create_issue",
-            { gameState: gs },
-          ),
+          canAct(facil, { role: "business", team: "" }, null, "create_issue", {
+            gameState: gs,
+          }),
           "facilitator simulating as business CAN create (the fix)",
         );
         // A non-facilitator cannot escalate via impersonation.
@@ -617,10 +743,16 @@
         const imp = { role: "developer", team: "Team 2" };
         const gs = { current_sprint: 1 };
         const t2Issue = {
-          id: 100, status: "in_progress", team: "Team 2", batch_size: 1,
+          id: 100,
+          status: "in_progress",
+          team: "Team 2",
+          batch_size: 1,
         };
         const t1Issue = {
-          id: 101, status: "in_progress", team: "Team 1", batch_size: 1,
+          id: 101,
+          status: "in_progress",
+          team: "Team 1",
+          batch_size: 1,
         };
 
         assert(effectiveTeam(facil, imp) === "Team 2", "effective team Team 2");
@@ -629,13 +761,17 @@
           "facil-as-dev-T2 can add task to T2 issue",
         );
         assert(
-          !canAct(facil, imp, t1Issue, "add_task", { gameState: gs, tasks: [] }),
+          !canAct(facil, imp, t1Issue, "add_task", {
+            gameState: gs,
+            tasks: [],
+          }),
           "facil-as-dev-T2 cannot add task to T1 issue",
         );
         const complete = [{ parent_issue_id: 100, status: "complete" }];
         assert(
           canAct(facil, imp, t2Issue, "send_to_testing", {
-            gameState: gs, tasks: complete,
+            gameState: gs,
+            tasks: complete,
           }),
           "facil-as-dev-T2 can send T2 issue with batch gate open",
         );
@@ -694,7 +830,9 @@
       async run(ctx) {
         const biz = await ctx.createUser("business", null, "biz");
         const dev = await ctx.createUser("developer", "TEST-ALPHA", "dev");
-        const issue = await ctx.createIssue(biz, "gate test", { batch_size: 2 });
+        const issue = await ctx.createIssue(biz, "gate test", {
+          batch_size: 2,
+        });
         await ctx.updateIssue(issue.id, {
           team: "TEST-ALPHA",
           status: "in_progress",
@@ -742,8 +880,14 @@
           const issue = await ctx.createIssue(biz, "mod-check-" + i);
           const hasFlaw = issue.id % modulus === 0;
           ctx.log(
-            "  #" + issue.id + " % " + modulus + " = " +
-              (issue.id % modulus) + " → " + (hasFlaw ? "FLAW" : "clean"),
+            "  #" +
+              issue.id +
+              " % " +
+              modulus +
+              " = " +
+              (issue.id % modulus) +
+              " → " +
+              (hasFlaw ? "FLAW" : "clean"),
           );
         }
       },
@@ -766,7 +910,9 @@
         await ctx.pause();
 
         ctx.log("→ business creates");
-        const issue = await ctx.createIssue(biz, "happy-path", { batch_size: 1 });
+        const issue = await ctx.createIssue(biz, "happy-path", {
+          batch_size: 1,
+        });
         await ctx.pause();
 
         ctx.log("→ dev claims");
@@ -1006,6 +1152,292 @@
       },
     },
 
+    // ---------- sprint: exercises real game_state mutations -----------
+    // Every test in this category MUST call ctx.snapshotGameState() at
+    // the start of its run function. The runner's finally block will
+    // call ctx.restoreGameState() automatically, so even a thrown
+    // assertion cannot leave the real session stuck in sprint 2 or 3.
+    {
+      id: "sprint-advance-flow",
+      name: "Sprint: advance 1 → 2 → 3 (real game_state), restored after",
+      category: "sprint",
+      description:
+        "Walks current_sprint through every valid value using updateGameState. Verifies each transition is observable in the DB. Snapshots the original value and restores it via the runner's auto-restore.",
+      async run(ctx) {
+        await ctx.snapshotGameState();
+        // Deterministic start.
+        await ctx.updateGameState({ current_sprint: 1 });
+        await ctx.pause();
+        let gs = await ctx.fetchGameState();
+        assert(gs.current_sprint === 1, "starts at 1");
+
+        ctx.log("→ advance to sprint 2");
+        await ctx.updateGameState({ current_sprint: 2 });
+        await ctx.pause();
+        gs = await ctx.fetchGameState();
+        assert(gs.current_sprint === 2, "advanced to 2");
+
+        ctx.log("→ advance to sprint 3");
+        await ctx.updateGameState({ current_sprint: 3 });
+        await ctx.pause();
+        gs = await ctx.fetchGameState();
+        assert(gs.current_sprint === 3, "advanced to 3");
+
+        ctx.log("→ reset back to 1");
+        await ctx.updateGameState({ current_sprint: 1 });
+        await ctx.pause();
+        gs = await ctx.fetchGameState();
+        assert(gs.current_sprint === 1, "reset to 1");
+        ctx.log("✓ full sprint cycle observable; restore will follow");
+      },
+    },
+    {
+      id: "sprint-config",
+      name: "Sprint: update security_modulus and hacker_count, restored after",
+      category: "sprint",
+      description:
+        "Writes non-default config values to game_state and verifies they land. Snapshot/restore guarantees the real modulus and hacker_count are not disturbed.",
+      async run(ctx) {
+        const original = await ctx.snapshotGameState();
+        const newMod = original.security_modulus === 11 ? 13 : 11;
+        const newHackers = original.hacker_count === 2 ? 3 : 2;
+        ctx.log(
+          "→ change modulus " +
+            original.security_modulus +
+            " → " +
+            newMod +
+            ", hackers " +
+            original.hacker_count +
+            " → " +
+            newHackers,
+        );
+        await ctx.updateGameState({
+          security_modulus: newMod,
+          hacker_count: newHackers,
+        });
+        await ctx.pause();
+        const gs = await ctx.fetchGameState();
+        assert(gs.security_modulus === newMod, "modulus persisted");
+        assert(gs.hacker_count === newHackers, "hacker_count persisted");
+        ctx.log("✓ writes land; restore will follow");
+      },
+    },
+    {
+      id: "e2e-sprint2-real-hacker",
+      name: "E2E Sprint 2: real game_state=2, full hacker-caught flow",
+      category: "sprint",
+      description:
+        "Sets current_sprint=2 in the real game_state, runs the business → dev → hacker injects → tester → security catches flow, and verifies hacker_log reflects a caught attempt. Auto-restores game_state afterward.",
+      async run(ctx) {
+        await ctx.snapshotGameState();
+        await ctx.updateGameState({ current_sprint: 2 });
+        await ctx.pause();
+
+        const biz = await ctx.createUser("business", null, "biz");
+        const dev = await ctx.createUser("developer", "TEST-S2", "dev");
+        const tester = await ctx.createUser("tester", "TEST-S2", "tst");
+        const sec = await ctx.createUser("security", null, "sec");
+        const hax = await ctx.createUser("hacker", "TEST-S2", "hax");
+
+        ctx.log("→ business creates, dev claims + completes");
+        const issue = await ctx.createIssue(biz, "sprint2-hacker-caught", {
+          sprint: 2,
+        });
+        await ctx.updateIssue(issue.id, {
+          team: "TEST-S2",
+          status: "in_progress",
+        });
+        const task = await ctx.createTask(issue, dev);
+        await ctx.completeTask(task);
+        await ctx.pause();
+
+        // If App.logic is loaded, verify the live canAct rule permits
+        // injection at sprint 2 (this is the whole point of advancing).
+        if (window.App && window.App.logic) {
+          const fresh0 = await ctx.fetchIssue(issue.id);
+          const canInject = window.App.logic.canAct(
+            { role: "hacker", team: "TEST-S2" },
+            null,
+            fresh0,
+            "inject_flaw",
+            { gameState: { current_sprint: 2 } },
+          );
+          assert(canInject, "canAct permits hacker inject at sprint 2");
+          ctx.log("  ✓ live canAct: inject allowed at sprint 2");
+        }
+
+        ctx.log("→ hacker injects");
+        await ctx.updateIssue(issue.id, { hacked_flag: true });
+        await ctx.logHackerAttempt(hax, issue, 2, null);
+        await ctx.pause();
+
+        ctx.log("→ dev sends to testing, passes through security");
+        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.pause();
+        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.pause();
+
+        ctx.log("→ security catches flaw, bounces to in_progress");
+        await supabase
+          .from("hacker_log")
+          .update({ caught_by_security: true })
+          .eq("target_issue_id", issue.id)
+          .is("caught_by_security", null);
+        await ctx.updateIssue(issue.id, {
+          hacked_flag: false,
+          status: "in_progress",
+          feedback_reason: "Security flaw detected",
+        });
+
+        const fresh = await ctx.fetchIssue(issue.id);
+        assert(fresh.hacked_flag === false, "flag cleared after catch");
+        assert(fresh.status === "in_progress", "bounced back to dev");
+        const { data: log } = await supabase
+          .from("hacker_log")
+          .select("*")
+          .eq("target_issue_id", issue.id)
+          .single();
+        assert(log.sprint === 2, "logged under sprint 2");
+        assert(log.caught_by_security === true, "logged as caught");
+        ctx.log("✓ sprint 2 end-to-end complete; restore will follow");
+      },
+    },
+    {
+      id: "e2e-sprint3-container-blocks",
+      name: "E2E Sprint 3: real game_state=3, container blocks injection via live canAct",
+      category: "sprint",
+      description:
+        "Sets current_sprint=3, creates a containerized issue+task, and evaluates canAct through the real App.logic path (not a reimplementation) to confirm injection is blocked. Checks both a real hacker and a facilitator-as-hacker. Auto-restores.",
+      async run(ctx) {
+        await ctx.snapshotGameState();
+        await ctx.updateGameState({ current_sprint: 3 });
+        await ctx.pause();
+
+        assert(
+          window.App && window.App.logic,
+          "App.logic must be available for this sprint 3 test (load app.js)",
+        );
+
+        const biz = await ctx.createUser("business", null, "biz");
+        const dev = await ctx.createUser("developer", "TEST-S3C", "dev");
+        const hax = await ctx.createUser("hacker", "TEST-S3C", "hax");
+
+        const issue = await ctx.createIssue(biz, "sprint3-containerized", {
+          sprint: 3,
+        });
+        await ctx.updateIssue(issue.id, {
+          team: "TEST-S3C",
+          status: "in_progress",
+          containerized: true,
+        });
+        await ctx.createTask(issue, dev, { containerized: true });
+        await ctx.pause();
+
+        const fresh = await ctx.fetchIssue(issue.id);
+        const gs3 = { current_sprint: 3 };
+
+        // Hacker attempting to inject
+        const hackerCan = window.App.logic.canAct(
+          { role: "hacker", team: "TEST-S3C" },
+          null,
+          fresh,
+          "inject_flaw",
+          { gameState: gs3 },
+        );
+        assert(!hackerCan, "containerized blocks real hacker at sprint 3");
+
+        // Facilitator impersonating hacker
+        const facilCan = window.App.logic.canAct(
+          { role: "facilitator", team: null },
+          { role: "hacker", team: "" },
+          fresh,
+          "inject_flaw",
+          { gameState: gs3 },
+        );
+        assert(!facilCan, "containerized blocks facil-as-hacker at sprint 3");
+
+        ctx.log(
+          "✓ container blocks injection via live canAct; restore will follow",
+        );
+      },
+    },
+    {
+      id: "e2e-sprint3-non-container-vulnerable",
+      name: "E2E Sprint 3: real game_state=3, non-containerized still injectable (negative control)",
+      category: "sprint",
+      description:
+        "Negative control: at sprint 3 without the container flag, injection must still succeed via canAct. Without this test, a bug that universally blocks injection at sprint 3 would look identical to the container-blocks test. Auto-restores.",
+      async run(ctx) {
+        await ctx.snapshotGameState();
+        await ctx.updateGameState({ current_sprint: 3 });
+        await ctx.pause();
+
+        assert(
+          window.App && window.App.logic,
+          "App.logic must be available for this sprint 3 test (load app.js)",
+        );
+
+        const biz = await ctx.createUser("business", null, "biz");
+        const dev = await ctx.createUser("developer", "TEST-S3N", "dev");
+        const hax = await ctx.createUser("hacker", "TEST-S3N", "hax");
+
+        const issue = await ctx.createIssue(biz, "sprint3-plain", {
+          sprint: 3,
+        });
+        await ctx.updateIssue(issue.id, {
+          team: "TEST-S3N",
+          status: "in_progress",
+        });
+        await ctx.createTask(issue, dev);
+        await ctx.pause();
+
+        const fresh = await ctx.fetchIssue(issue.id);
+        const gs3 = { current_sprint: 3 };
+        const canInject = window.App.logic.canAct(
+          { role: "hacker", team: "TEST-S3N" },
+          null,
+          fresh,
+          "inject_flaw",
+          { gameState: gs3 },
+        );
+        assert(
+          canInject,
+          "non-containerized MUST still be injectable at sprint 3",
+        );
+
+        // Also do a real DB injection + security-catches round-trip.
+        ctx.log("→ actually inject");
+        await ctx.updateIssue(issue.id, { hacked_flag: true });
+        await ctx.logHackerAttempt(hax, issue, 3, null);
+        await ctx.pause();
+        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.pause();
+        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.pause();
+
+        ctx.log("→ security catches");
+        await supabase
+          .from("hacker_log")
+          .update({ caught_by_security: true })
+          .eq("target_issue_id", issue.id)
+          .is("caught_by_security", null);
+        await ctx.updateIssue(issue.id, {
+          hacked_flag: false,
+          status: "in_progress",
+          feedback_reason: "Security flaw detected",
+        });
+        const { data: log } = await supabase
+          .from("hacker_log")
+          .select("*")
+          .eq("target_issue_id", issue.id)
+          .single();
+        assert(log.sprint === 3, "logged under sprint 3");
+        ctx.log(
+          "✓ sprint 3 plain issue is still hackable; restore will follow",
+        );
+      },
+    },
+
     // ---------- cleanup ----------
     {
       id: "cleanup",
@@ -1058,16 +1490,51 @@
       if (!t) throw new Error("unknown test: " + testId);
       const ctx = new TestContext(testId, logFn, delayMs);
       const started = performance.now();
+      const startedAt = new Date().toISOString();
+      let outcome;
       try {
         await t.run(ctx);
         const ms = Math.round(performance.now() - started);
         logFn("✓ passed in " + ms + " ms");
-        return { success: true, ctx, ms };
+        outcome = {
+          success: true,
+          ctx,
+          ms,
+          testId,
+          name: t.name,
+          category: t.category,
+          startedAt,
+          endedAt: new Date().toISOString(),
+        };
       } catch (err) {
+        const ms = Math.round(performance.now() - started);
         logFn("✗ " + (err.message || err));
         console.error("test failure", testId, err);
-        return { success: false, error: err, ctx };
+        outcome = {
+          success: false,
+          error: err,
+          ctx,
+          ms,
+          testId,
+          name: t.name,
+          category: t.category,
+          startedAt,
+          endedAt: new Date().toISOString(),
+        };
+      } finally {
+        // Safety net: if the test snapshotted game_state, restore it
+        // no matter what. Without this a failed sprint test could
+        // leave the real session stuck at sprint 2 or 3.
+        if (ctx._gsSnapshot) {
+          try {
+            await ctx.restoreGameState();
+          } catch (e) {
+            logFn("⚠ auto-restore game_state failed: " + (e.message || e));
+            console.error("game_state restore failed", testId, e);
+          }
+        }
       }
+      return outcome;
     },
   };
 })();

@@ -49,8 +49,8 @@ In this project folder, copy `config.example.js` to `config.js` and fill in:
 
 ```js
 window.CONFIG = {
-  SUPABASE_URL: 'https://abcdefghijk.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOi...'
+  SUPABASE_URL: "https://abcdefghijk.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOi...",
 };
 ```
 
@@ -66,7 +66,12 @@ The schema adds the tables to the realtime publication, but double-check:
 
 If any are missing, toggle them on.
 
-## 7. Test locally (optional)
+## 7. Next steps:
+
+1. Ensure that `config.js` exists in this folder with your credentials.
+2. Go to ([SETUP_CLOUDFLARE_DEPLOYMENT.md](SETUP_CLOUDFLARE_DEPLOYMENT.md)) and follow the setup instructions, including draging this folder into your cloudflare app for deployment.
+
+## 8. Test locally (optional)
 
 You can open `index.html` directly in a browser from your local filesystem for a quick smoke test, though some browsers block `file://` imports. Easier: skip ahead to deployment.
 

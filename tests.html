@@ -8,42 +8,65 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <!-- Load app.js so window.App.logic (pure logic helpers) is available
-         to frontend unit tests. app.js has no side effects here because
-         Alpine is never loaded, so its alpine:init listener never fires. -->
+    <!-- Load app.js so window.App.logic (the pure logic helpers) is
+         available to Frontend tests and to the live Sprint 3 canAct
+         checks. app.js has no side effects here because Alpine is
+         never loaded, so its alpine:init listener never fires. -->
     <script src="app.js"></script>
     <script src="tests.js"></script>
+    <style>
+      /* Hover/focus preview: rows and cards that the currently selected
+         run button will touch are outlined in indigo; excluded tests
+         are faded. Driven by data-will-run on each row and card. */
+      [data-will-run="true"] {
+        outline: 2px solid #818cf8; /* indigo-400 */
+        outline-offset: -2px;
+      }
+      [data-will-run="false"] {
+        opacity: 0.45;
+      }
+      /* High-visibility focus ring for keyboard users */
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid #4f46e5;
+        outline-offset: 2px;
+      }
+      /* Prefer reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; animation: none !important; }
+      }
+    </style>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased p-4 sm:p-6">
-    <div class="max-w-4xl mx-auto">
-      <!-- Header -->
+    <div class="max-w-5xl mx-auto">
+
+      <!-- ============================================================
+           Header
+           ============================================================ -->
       <header class="mb-6">
         <div class="flex items-start justify-between gap-4 flex-wrap">
-          <div>
+          <div class="min-w-0">
             <h1 class="text-2xl font-bold">Test harness</h1>
-            <p class="text-sm text-slate-600 mt-1">
-              Two kinds of tests. <strong>Frontend</strong> tests exercise
-              pure logic (permissions, batch gate, flaw detection) with no
-              DB writes. <strong>Setup / unit / E2E</strong> tests hit
-              Supabase directly. Keep
-              <a
-                href="index.html"
-                target="_blank"
-                class="text-sky-600 underline"
-                >index.html</a
-              >
+            <p class="text-sm text-slate-600 mt-1 max-w-2xl">
+              Six categories of tests.
+              <strong>Frontend</strong> exercises pure logic (no DB).
+              <strong>Setup</strong> checks schema and seed rows.
+              <strong>Unit</strong> checks DB primitives.
+              <strong>E2E</strong> walks full pipeline flows.
+              <strong>Sprint</strong> mutates real <code>game_state</code>
+              (snapshot + auto-restore on finish, even if a test fails).
+              <strong>Cleanup</strong> deletes everything prefixed
+              <code>TEST:</code> or <code>TEST-</code>.
+              Keep
+              <a href="index.html" target="_blank" class="text-sky-600 underline">index.html</a>
               or
-              <a
-                href="admin.html"
-                target="_blank"
-                class="text-sky-600 underline"
-                >admin.html</a
-              >
-              open in another tab to watch cards move in real time during
-              E2E runs.
+              <a href="admin.html" target="_blank" class="text-sky-600 underline">admin.html</a>
+              open in another tab to watch the board live during E2E runs.
             </p>
           </div>
-          <div class="flex items-center gap-3 text-xs">
+          <div class="flex items-center gap-3 text-xs flex-wrap">
             <label class="flex items-center gap-1">
               Delay
               <input
@@ -53,267 +76,1057 @@
                 min="0"
                 step="100"
                 class="w-20 px-2 py-1 border border-slate-300 rounded"
+                aria-label="Delay between DB writes in milliseconds"
               />
               <span>ms</span>
             </label>
-            <span class="text-slate-400">|</span>
+            <span class="text-slate-400" aria-hidden="true">|</span>
+            <a
+              href="guide.html?doc=testing.md"
+              target="_blank"
+              class="text-sky-600 underline"
+              >Testing guide (rendered)</a
+            >
             <a
               href="testing.md"
               target="_blank"
-              class="text-sky-600 underline"
-              >Manual guide</a
+              class="text-slate-500 underline"
+              title="Raw markdown source"
+              >raw</a
             >
           </div>
         </div>
       </header>
 
-      <!-- Global controls -->
-      <div class="mb-4 flex flex-wrap gap-2">
-        <button
-          id="run-all"
-          class="px-4 py-2 bg-slate-900 text-white rounded hover:bg-slate-800"
-        >
-          Run all tests
-        </button>
-        <button
-          id="run-frontend"
-          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-          title="Pure frontend logic tests. No DB writes."
-        >
-          Run frontend only
-        </button>
-        <button
-          id="run-setup"
-          class="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-800"
-        >
-          Run setup only
-        </button>
-        <button
-          id="run-e2e"
-          class="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-800"
-        >
-          Run E2E only
-        </button>
-        <button
-          id="cleanup"
-          class="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
-        >
-          Clean up TEST data
-        </button>
-        <button
-          id="reset"
-          class="px-3 py-2 border border-slate-300 rounded hover:bg-white"
-        >
-          Reset view
-        </button>
+      <!-- ============================================================
+           Category chips
+           ============================================================ -->
+      <div class="mb-4 flex flex-wrap gap-2 items-center" id="category-chips" aria-label="Test counts by category">
+        <span class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Categories:</span>
+        <!-- filled in at mount -->
       </div>
 
-      <!-- Summary -->
-      <div
+      <!-- ============================================================
+           Run controls
+           ============================================================ -->
+      <div class="mb-4" role="toolbar" aria-label="Run controls">
+        <div class="flex flex-wrap gap-2 items-center">
+          <button
+            id="run-all-keep"
+            data-run-key="all-keep"
+            class="px-4 py-2 bg-slate-900 text-white rounded hover:bg-slate-800"
+            title="Run every test except Cleanup. Leaves TEST rows in the database so you can inspect state."
+          >
+            Run all (keep data)
+          </button>
+          <button
+            id="run-all-cleanup"
+            data-run-key="all-cleanup"
+            class="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-900"
+            title="Run every test including Cleanup at the end. Wipes TEST rows."
+          >
+            Run all + cleanup
+          </button>
+          <button
+            id="run-frontend"
+            data-run-key="frontend"
+            class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+            title="Pure logic only. No DB writes, no delay."
+          >
+            Frontend only
+          </button>
+          <button
+            id="run-setup"
+            data-run-key="setup"
+            class="px-3 py-2 bg-sky-700 text-white rounded hover:bg-sky-800 text-sm"
+          >
+            Setup only
+          </button>
+          <button
+            id="run-unit"
+            data-run-key="unit"
+            class="px-3 py-2 bg-violet-700 text-white rounded hover:bg-violet-800 text-sm"
+          >
+            Unit only
+          </button>
+          <button
+            id="run-e2e"
+            data-run-key="e2e"
+            class="px-3 py-2 bg-emerald-700 text-white rounded hover:bg-emerald-800 text-sm"
+          >
+            E2E only
+          </button>
+          <button
+            id="run-sprint"
+            data-run-key="sprint"
+            class="px-3 py-2 bg-rose-700 text-white rounded hover:bg-rose-800 text-sm"
+            title="Sprint tests mutate real game_state. Each one snapshots and auto-restores on completion or failure."
+          >
+            Sprint only
+          </button>
+          <button
+            id="cleanup"
+            data-run-key="cleanup"
+            class="px-3 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm"
+            title="Deletes rows created by tests. Matches by TEST prefix only, so real session data is untouched."
+          >
+            Clean up TEST data
+          </button>
+          <button
+            id="reset-view"
+            class="px-3 py-2 border border-slate-300 rounded hover:bg-white text-sm"
+            title="Reset status badges and per-test logs. Does not affect DB data or testing history."
+          >
+            Reset view
+          </button>
+          <button
+            id="abort"
+            class="px-3 py-2 border border-rose-400 text-rose-700 rounded hover:bg-rose-50 text-sm hidden"
+            title="Stop after the currently running test finishes"
+          >
+            Abort batch
+          </button>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">
+          Hover or tab-focus any button above to preview which tests it
+          will run (highlighted below). Skipped tests fade out.
+        </p>
+      </div>
+
+      <!-- ============================================================
+           Run summary card (live narrative + progress bar + pill stats)
+           ============================================================ -->
+      <section
         id="summary"
-        class="mb-4 p-3 bg-white border border-slate-200 rounded text-sm flex items-center justify-between"
+        class="mb-4 p-4 bg-white border border-slate-200 rounded-lg"
+        aria-labelledby="summary-heading"
       >
-        <span id="summary-text">No tests run yet.</span>
-        <span id="running-indicator" class="hidden text-amber-600 text-xs"
-          >running…</span
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div class="min-w-0 flex-1">
+            <h2 id="summary-heading" class="text-sm font-semibold text-slate-700 mb-1">
+              Run summary
+            </h2>
+            <p
+              id="narrative"
+              class="text-sm text-slate-900"
+              role="status"
+              aria-live="polite"
+            >
+              No tests run yet. Pick a run button above, or run an
+              individual test from the table below.
+            </p>
+          </div>
+          <div class="flex items-center gap-2 text-xs flex-wrap">
+            <span id="pill-passed" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">0 passed</span>
+            <span id="pill-failed" class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-medium">0 failed</span>
+            <span id="pill-skipped" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">0 skipped</span>
+          </div>
+        </div>
+        <div id="progress-wrap" class="mt-3 hidden">
+          <div class="h-2 bg-slate-200 rounded overflow-hidden" aria-hidden="true">
+            <div id="progress-bar" class="h-2 bg-slate-900 transition-all" style="width:0%"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           All-tests summary table
+           ============================================================ -->
+      <section class="mb-4" aria-labelledby="table-heading">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <h2 id="table-heading" class="text-sm font-semibold text-slate-700">
+            All tests
+            <span id="test-total-count" class="text-slate-500 font-normal"></span>
+          </h2>
+        </div>
+        <div class="overflow-x-auto bg-white border border-slate-200 rounded-lg">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+              <tr>
+                <th scope="col" class="text-left px-3 py-2">Test</th>
+                <th scope="col" class="text-left px-3 py-2">Category</th>
+                <th scope="col" class="text-left px-3 py-2">Status</th>
+                <th scope="col" class="text-left px-3 py-2">Duration</th>
+                <th scope="col" class="text-right px-3 py-2">Run</th>
+              </tr>
+            </thead>
+            <tbody id="tests-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Testing log panel (persistent localStorage)
+           ============================================================ -->
+      <section class="mb-4" aria-labelledby="log-heading">
+        <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
+          <h2 id="log-heading" class="text-sm font-semibold text-slate-700">
+            Testing log
+            <span id="log-count" class="text-slate-500 font-normal"></span>
+          </h2>
+          <div class="flex items-center gap-2 text-xs">
+            <button
+              id="toggle-log"
+              class="px-2 py-1 border border-slate-300 rounded hover:bg-white"
+              aria-expanded="false"
+              aria-controls="log-body"
+            >Show</button>
+            <button
+              id="export-log"
+              class="px-2 py-1 border border-slate-300 rounded hover:bg-white"
+              title="Download a Markdown report of the entire testing history"
+            >Export (.md)</button>
+            <button
+              id="clear-log"
+              class="px-2 py-1 border border-rose-300 text-rose-700 rounded hover:bg-rose-50"
+              title="Wipe testing history. Does not delete any DB data."
+            >Clear history</button>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 mb-2">
+          Stored in your browser only (<code>localStorage</code> key
+          <code>devsec_test_log_v1</code>, capped at 2000 entries).
+          Persists across page reloads. No server-side copy.
+        </p>
+        <div
+          id="log-body"
+          class="hidden overflow-x-auto bg-white border border-slate-200 rounded-lg"
         >
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-100 uppercase tracking-wide text-slate-600">
+              <tr>
+                <th scope="col" class="text-left px-3 py-2">Time</th>
+                <th scope="col" class="text-left px-3 py-2">Batch</th>
+                <th scope="col" class="text-left px-3 py-2">Test</th>
+                <th scope="col" class="text-left px-3 py-2">Category</th>
+                <th scope="col" class="text-left px-3 py-2">Result</th>
+                <th scope="col" class="text-right px-3 py-2">ms</th>
+              </tr>
+            </thead>
+            <tbody id="log-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Per-test expandable cards (detailed logs)
+           ============================================================ -->
+      <section class="mt-6" aria-labelledby="cards-heading">
+        <h2 id="cards-heading" class="text-sm font-semibold text-slate-700 mb-2">
+          Individual tests
+          <span class="text-slate-500 font-normal">
+            (click a card title or Run to expand its log)
+          </span>
+        </h2>
+        <div id="tests-list" class="space-y-3"></div>
+      </section>
+
+      <!-- ============================================================
+           Test detail dialog (what does this test do?)
+           ============================================================ -->
+      <div
+        id="detail-backdrop"
+        class="fixed inset-0 bg-black/50 z-40 hidden flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-title"
+      >
+        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto">
+          <div class="p-5 sm:p-6">
+            <div class="flex items-start justify-between gap-4 mb-3">
+              <div class="min-w-0">
+                <div id="detail-category" class="text-[10px] uppercase tracking-wide font-semibold text-slate-500"></div>
+                <h3 id="detail-title" class="font-bold text-lg"></h3>
+                <code id="detail-id" class="text-xs text-slate-500"></code>
+              </div>
+              <button
+                id="detail-close"
+                class="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                aria-label="Close"
+              >&times;</button>
+            </div>
+            <div class="prose prose-sm max-w-none">
+              <p id="detail-description" class="text-slate-800"></p>
+              <div id="detail-extra" class="mt-3"></div>
+            </div>
+            <div class="mt-5 flex justify-end gap-2">
+              <button
+                id="detail-close-2"
+                class="px-3 py-1.5 text-sm border border-slate-300 rounded hover:bg-slate-50"
+              >Close</button>
+              <button
+                id="detail-run"
+                class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800"
+              >Run this test</button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Tests -->
-      <div id="tests-list" class="space-y-3"></div>
-
-      <!-- Footer notes -->
+      <!-- Footer -->
       <footer class="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-500">
         <p>
           Tests create rows prefixed with <code>TEST:</code> (issues) and
-          <code>TEST-</code> (users). Cleanup matches those prefixes, so your
-          real session data is left alone. Cascades remove tasks and
-          issue-linked hacker_log rows automatically.
+          <code>TEST-</code> (users). Cleanup matches those prefixes, so
+          your real session data is left alone. Cascades remove tasks
+          and issue-linked hacker_log rows automatically. Sprint tests
+          snapshot <code>game_state</code> and auto-restore on completion
+          or failure.
         </p>
       </footer>
     </div>
 
     <script>
       (function () {
+        "use strict";
         // ==========================================================
-        // Render helpers
-        // ==========================================================
-        const listEl = document.getElementById("tests-list");
-        const summaryEl = document.getElementById("summary-text");
-        const runningEl = document.getElementById("running-indicator");
-        const delayInput = document.getElementById("delay");
-
-        let stats = { run: 0, pass: 0, fail: 0 };
-
-        // Status badge styles
-        const STATUS_CLASSES = {
-          pending: "bg-slate-100 text-slate-700",
-          running: "bg-amber-100 text-amber-800",
-          passed: "bg-emerald-100 text-emerald-800",
-          failed: "bg-rose-100 text-rose-800",
-        };
-
-        // Category badge styles
-        const CATEGORY_CLASSES = {
-          setup: "bg-sky-100 text-sky-800",
-          frontend: "bg-indigo-100 text-indigo-800",
-          unit: "bg-violet-100 text-violet-800",
-          e2e: "bg-emerald-100 text-emerald-800",
-          cleanup: "bg-amber-100 text-amber-800",
-        };
-
-        function updateSummary() {
-          summaryEl.textContent =
-            "Run: " +
-            stats.run +
-            " · Passed: " +
-            stats.pass +
-            " · Failed: " +
-            stats.fail;
-        }
-
-        // Build a card for one test and return { card, run }.
-        // The returned run() is reused by "Run all" etc.
-        function renderTestCard(t) {
-          const card = document.createElement("div");
-          card.className =
-            "bg-white border border-slate-200 rounded-lg p-3";
-          card.dataset.category = t.category;
-
-          card.innerHTML =
-            '<div class="flex items-start justify-between gap-3 flex-wrap">' +
-            '  <div class="flex-1 min-w-0">' +
-            '    <div class="flex items-center gap-2 mb-1">' +
-            '      <span class="test-cat text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full"></span>' +
-            '      <span class="test-status text-xs px-2 py-0.5 rounded-full"></span>' +
-            "    </div>" +
-            '    <div class="font-semibold test-name"></div>' +
-            '    <div class="text-sm text-slate-600 test-desc"></div>' +
-            "  </div>" +
-            '  <button class="test-run px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800 min-h-[36px]">Run</button>' +
-            "</div>" +
-            '<pre class="test-log mt-3 hidden bg-slate-900 text-slate-100 text-xs p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap"></pre>';
-
-          card.querySelector(".test-name").textContent = t.name;
-          card.querySelector(".test-desc").textContent = t.description || "";
-
-          const catEl = card.querySelector(".test-cat");
-          catEl.textContent = t.category;
-          catEl.className =
-            "test-cat text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full " +
-            (CATEGORY_CLASSES[t.category] || "bg-slate-100 text-slate-700");
-
-          const statusEl = card.querySelector(".test-status");
-          const logEl = card.querySelector(".test-log");
-          const runBtn = card.querySelector(".test-run");
-
-          function setStatus(s) {
-            statusEl.textContent = s;
-            statusEl.className =
-              "test-status text-xs px-2 py-0.5 rounded-full " +
-              (STATUS_CLASSES[s] || STATUS_CLASSES.pending);
-          }
-          setStatus("pending");
-
-          async function run() {
-            logEl.classList.remove("hidden");
-            logEl.textContent = "";
-            setStatus("running");
-            runningEl.classList.remove("hidden");
-
-            const log = (m) => {
-              logEl.textContent += m + "\n";
-              logEl.scrollTop = logEl.scrollHeight;
-            };
-            log("→ " + t.name);
-
-            stats.run++;
-            const delay = parseInt(delayInput.value, 10);
-            const result = await window.TEST_HARNESS.runTest(
-              t.id,
-              log,
-              isNaN(delay) ? undefined : delay,
-            );
-
-            if (result.success) {
-              setStatus("passed");
-              stats.pass++;
-            } else {
-              setStatus("failed");
-              stats.fail++;
-            }
-            updateSummary();
-            runningEl.classList.add("hidden");
-            return result;
-          }
-
-          runBtn.addEventListener("click", run);
-          return { card, run, test: t };
-        }
-
-        // ==========================================================
-        // Mount
+        // Early abort if test harness didn't load
         // ==========================================================
         if (!window.TEST_HARNESS) {
-          summaryEl.textContent =
-            "Test harness failed to load. Check config.js.";
+          document.getElementById("narrative").textContent =
+            "Test harness failed to load. Check config.js and reload.";
           return;
         }
 
-        const rendered = window.TEST_HARNESS.tests.map((t) => {
-          const r = renderTestCard(t);
-          listEl.appendChild(r.card);
-          return r;
-        });
+        const TESTS = window.TEST_HARNESS.tests;
+        const LOG_KEY = "devsec_test_log_v1";
+        const LOG_CAP = 2000;
 
         // ==========================================================
-        // Global control handlers
+        // Constants: status + category styling
         // ==========================================================
-        async function runFiltered(predicate) {
-          for (const r of rendered) {
-            if (predicate(r.test)) await r.run();
+        const STATUS_CLASSES = {
+          pending:  "bg-slate-100 text-slate-700",
+          running:  "bg-amber-100 text-amber-800",
+          passed:   "bg-emerald-100 text-emerald-800",
+          failed:   "bg-rose-100 text-rose-800",
+          skipped:  "bg-slate-200 text-slate-500",
+          aborted:  "bg-slate-200 text-slate-500",
+        };
+        const CATEGORY_CLASSES = {
+          setup:    "bg-sky-100 text-sky-800",
+          frontend: "bg-indigo-100 text-indigo-800",
+          unit:     "bg-violet-100 text-violet-800",
+          e2e:      "bg-emerald-100 text-emerald-800",
+          sprint:   "bg-rose-100 text-rose-800",
+          cleanup:  "bg-amber-100 text-amber-800",
+        };
+        // Extra static explanations merged into the detail dialog so
+        // tests without a description still get something useful.
+        const CATEGORY_EXPLAIN = {
+          setup:
+            "Verifies your Supabase schema is installed and seed rows " +
+            "(game_state singleton, FACIL1 facilitator) exist. Safe to " +
+            "run anytime.",
+          frontend:
+            "Exercises window.App.logic directly. No DB writes and no " +
+            "delay. If these fail, the game's rules are broken.",
+          unit:
+            "DB-level primitives: create a user, claim an issue, batch " +
+            "gate, deterministic security rule.",
+          e2e:
+            "Full pipeline flows: Business → Developer → Tester → " +
+            "Security → Release → Production. Includes feedback loops " +
+            "and hacker-catches-flaw.",
+          sprint:
+            "Mutates the real game_state.current_sprint so the live " +
+            "canAct rules run at sprint 2 or 3. Each test snapshots " +
+            "game_state and auto-restores when it finishes, even if it " +
+            "fails.",
+          cleanup:
+            "Deletes rows this harness created. Matches by TEST prefix " +
+            "only, so real session data is never touched.",
+        };
+
+        // ==========================================================
+        // DOM refs
+        // ==========================================================
+        const narrativeEl      = document.getElementById("narrative");
+        const passedChip       = document.getElementById("pill-passed");
+        const failedChip       = document.getElementById("pill-failed");
+        const skippedChip      = document.getElementById("pill-skipped");
+        const progressWrap     = document.getElementById("progress-wrap");
+        const progressBar      = document.getElementById("progress-bar");
+        const tableBody        = document.getElementById("tests-table-body");
+        const listEl           = document.getElementById("tests-list");
+        const abortBtn         = document.getElementById("abort");
+        const delayInput       = document.getElementById("delay");
+        const chipsWrap        = document.getElementById("category-chips");
+        const testTotalCount   = document.getElementById("test-total-count");
+        const logBody          = document.getElementById("log-body");
+        const logRows          = document.getElementById("log-rows");
+        const logCount         = document.getElementById("log-count");
+        const toggleLogBtn     = document.getElementById("toggle-log");
+        // Detail dialog
+        const detailBackdrop   = document.getElementById("detail-backdrop");
+        const detailCategory   = document.getElementById("detail-category");
+        const detailTitle      = document.getElementById("detail-title");
+        const detailId         = document.getElementById("detail-id");
+        const detailDescription= document.getElementById("detail-description");
+        const detailExtra      = document.getElementById("detail-extra");
+        const detailCloseA     = document.getElementById("detail-close");
+        const detailCloseB     = document.getElementById("detail-close-2");
+        const detailRun        = document.getElementById("detail-run");
+
+        // ==========================================================
+        // Storage: persistent testing log (localStorage)
+        // ==========================================================
+        function readLog() {
+          try {
+            const raw = localStorage.getItem(LOG_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            console.warn("log parse failed, resetting", e);
+            return [];
+          }
+        }
+        function saveLog(entries) {
+          try {
+            const trimmed = entries.slice(-LOG_CAP);
+            localStorage.setItem(LOG_KEY, JSON.stringify(trimmed));
+          } catch (e) {
+            console.warn("log save failed", e);
+          }
+        }
+        function appendLogEntry(entry) {
+          const entries = readLog();
+          entries.push(entry);
+          saveLog(entries);
+          renderLog();
+        }
+
+        // ==========================================================
+        // Escaping helpers
+        // ==========================================================
+        function escapeHtml(s) {
+          return String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+        function formatTime(iso) {
+          if (!iso) return "";
+          try {
+            const d = new Date(iso);
+            return d.toLocaleTimeString();
+          } catch (e) {
+            return iso;
           }
         }
 
-        document
-          .getElementById("run-all")
-          .addEventListener("click", () => runFiltered(() => true));
-        document
-          .getElementById("run-frontend")
-          .addEventListener("click", () =>
-            runFiltered((t) => t.category === "frontend"),
-          );
-        document
-          .getElementById("run-setup")
-          .addEventListener("click", () =>
-            runFiltered((t) => t.category === "setup"),
-          );
-        document
-          .getElementById("run-e2e")
-          .addEventListener("click", () =>
-            runFiltered((t) => t.category === "e2e"),
-          );
-        document
-          .getElementById("cleanup")
-          .addEventListener("click", async () => {
-            const cleanupCard = rendered.find(
-              (r) => r.test.id === "cleanup",
-            );
-            if (cleanupCard) await cleanupCard.run();
+        // ==========================================================
+        // Which tests would each run-key execute?
+        // ==========================================================
+        function testsForKey(key) {
+          if (key === "all-keep") {
+            return TESTS.filter(function (t) { return t.category !== "cleanup"; });
+          }
+          if (key === "all-cleanup") {
+            return TESTS.slice();
+          }
+          if (key === "cleanup") {
+            return TESTS.filter(function (t) { return t.category === "cleanup"; });
+          }
+          // A category name: frontend / setup / unit / e2e / sprint
+          return TESTS.filter(function (t) { return t.category === key; });
+        }
+
+        // ==========================================================
+        // Category chips
+        // ==========================================================
+        function renderChips() {
+          const counts = {};
+          for (var i = 0; i < TESTS.length; i++) {
+            var c = TESTS[i].category;
+            counts[c] = (counts[c] || 0) + 1;
+          }
+          testTotalCount.textContent = "(" + TESTS.length + " total)";
+          chipsWrap.querySelectorAll(".chip").forEach(function (el) { el.remove(); });
+          const order = ["setup", "frontend", "unit", "e2e", "sprint", "cleanup"];
+          order.forEach(function (cat) {
+            if (!counts[cat]) return;
+            var chip = document.createElement("span");
+            chip.className =
+              "chip text-[11px] px-2 py-0.5 rounded-full font-medium " +
+              (CATEGORY_CLASSES[cat] || "bg-slate-100 text-slate-700");
+            chip.textContent = cat + " " + counts[cat];
+            chipsWrap.appendChild(chip);
           });
-        document.getElementById("reset").addEventListener("click", () => {
-          stats = { run: 0, pass: 0, fail: 0 };
-          updateSummary();
-          document.querySelectorAll(".test-status").forEach((el) => {
-            el.textContent = "pending";
-            el.className =
-              "test-status text-xs px-2 py-0.5 rounded-full " +
-              STATUS_CLASSES.pending;
+        }
+
+        // ==========================================================
+        // Per-test rendering (table row + card) and in-memory state
+        // ==========================================================
+        const byId = new Map(); // testId -> { test, row, card, setStatus, run }
+        let activeBatch = null;
+
+        function setStatus(rec, status) {
+          rec.statusEl.textContent = status;
+          rec.statusEl.className =
+            "row-status text-xs px-2 py-0.5 rounded-full " +
+            (STATUS_CLASSES[status] || STATUS_CLASSES.pending);
+          rec.cardStatusEl.textContent = status;
+          rec.cardStatusEl.className =
+            "test-status text-xs px-2 py-0.5 rounded-full " +
+            (STATUS_CLASSES[status] || STATUS_CLASSES.pending);
+        }
+
+        function makeRow(t) {
+          const tr = document.createElement("tr");
+          tr.className = "border-t border-slate-100";
+          tr.dataset.category = t.category;
+          tr.dataset.testid = t.id;
+          tr.innerHTML =
+            '<td class="px-3 py-2 align-top">' +
+            '  <div class="font-medium">' + escapeHtml(t.name) + '</div>' +
+            '  <code class="text-[11px] text-slate-500">' + escapeHtml(t.id) + '</code>' +
+            '</td>' +
+            '<td class="px-3 py-2 align-top">' +
+            '  <span class="row-cat text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full ' +
+              (CATEGORY_CLASSES[t.category] || "bg-slate-100 text-slate-700") +
+              '">' + escapeHtml(t.category) + '</span>' +
+            '</td>' +
+            '<td class="px-3 py-2 align-top">' +
+            '  <span class="row-status text-xs px-2 py-0.5 rounded-full ' + STATUS_CLASSES.pending + '">pending</span>' +
+            '</td>' +
+            '<td class="px-3 py-2 align-top text-slate-500"><span class="row-ms">-</span></td>' +
+            '<td class="px-3 py-2 align-top text-right whitespace-nowrap">' +
+            '  <button class="row-info px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50" ' +
+               'aria-label="What does this test do?" title="What does this test do?">?</button> ' +
+            '  <button class="row-run px-3 py-1 text-xs bg-slate-900 text-white rounded hover:bg-slate-800">Run</button>' +
+            '</td>';
+          return tr;
+        }
+
+        function makeCard(t) {
+          const card = document.createElement("div");
+          card.className = "bg-white border border-slate-200 rounded-lg p-3";
+          card.dataset.category = t.category;
+          card.dataset.testid = t.id;
+          card.innerHTML =
+            '<div class="flex items-start justify-between gap-3 flex-wrap">' +
+            '  <div class="flex-1 min-w-0">' +
+            '    <div class="flex items-center gap-2 mb-1 flex-wrap">' +
+            '      <span class="test-cat text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full ' +
+                  (CATEGORY_CLASSES[t.category] || "bg-slate-100 text-slate-700") +
+                  '">' + escapeHtml(t.category) + '</span>' +
+            '      <span class="test-status text-xs px-2 py-0.5 rounded-full ' + STATUS_CLASSES.pending + '">pending</span>' +
+            '      <code class="text-[11px] text-slate-500">' + escapeHtml(t.id) + '</code>' +
+            '    </div>' +
+            '    <div class="font-semibold test-name">' + escapeHtml(t.name) + '</div>' +
+            '    <div class="text-sm text-slate-600 test-desc">' + escapeHtml(t.description || "") + '</div>' +
+            '  </div>' +
+            '  <div class="flex items-center gap-1">' +
+            '    <button class="card-info px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50" ' +
+                 'aria-label="What does this test do?" title="What does this test do?">?</button>' +
+            '    <button class="card-run px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800 min-h-[36px]">Run</button>' +
+            '  </div>' +
+            '</div>' +
+            '<pre class="test-log mt-3 hidden bg-slate-900 text-slate-100 text-xs p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap"></pre>';
+          return card;
+        }
+
+        // ==========================================================
+        // Mount: build row + card for every test, wire per-test handlers
+        // ==========================================================
+        function render() {
+          renderChips();
+          tableBody.innerHTML = "";
+          listEl.innerHTML = "";
+          byId.clear();
+
+          TESTS.forEach(function (t) {
+            const row = makeRow(t);
+            const card = makeCard(t);
+            tableBody.appendChild(row);
+            listEl.appendChild(card);
+
+            const rec = {
+              test: t,
+              row: row,
+              card: card,
+              statusEl: row.querySelector(".row-status"),
+              cardStatusEl: card.querySelector(".test-status"),
+              msEl: row.querySelector(".row-ms"),
+              logEl: card.querySelector(".test-log"),
+              status: "pending",
+              lastMs: null,
+            };
+            byId.set(t.id, rec);
+
+            // Run handlers (row + card share implementation).
+            async function runOne() {
+              await runBatch("single:" + t.id, [t]);
+            }
+            row.querySelector(".row-run").addEventListener("click", runOne);
+            card.querySelector(".card-run").addEventListener("click", runOne);
+
+            // Info ( ? ) handlers open the detail dialog.
+            function openDetail() { showDetail(t); }
+            row.querySelector(".row-info").addEventListener("click", openDetail);
+            card.querySelector(".card-info").addEventListener("click", openDetail);
           });
-          document.querySelectorAll(".test-log").forEach((el) => {
-            el.textContent = "";
-            el.classList.add("hidden");
+        }
+
+        // ==========================================================
+        // Detail dialog
+        // ==========================================================
+        let detailFor = null;
+        function showDetail(t) {
+          detailFor = t;
+          detailCategory.textContent = t.category;
+          detailTitle.textContent = t.name;
+          detailId.textContent = t.id;
+          detailDescription.textContent =
+            t.description ||
+            "This test does not have a specific description. Category explanation below applies.";
+          detailExtra.innerHTML =
+            '<p class="text-xs text-slate-600 mb-0"><strong>' +
+            escapeHtml(t.category) + ' category:</strong> ' +
+            escapeHtml(CATEGORY_EXPLAIN[t.category] || "") + '</p>';
+          detailBackdrop.classList.remove("hidden");
+          detailBackdrop.classList.add("flex");
+          detailCloseA.focus();
+        }
+        function closeDetail() {
+          detailBackdrop.classList.add("hidden");
+          detailBackdrop.classList.remove("flex");
+          detailFor = null;
+        }
+        detailCloseA.addEventListener("click", closeDetail);
+        detailCloseB.addEventListener("click", closeDetail);
+        detailBackdrop.addEventListener("click", function (e) {
+          if (e.target === detailBackdrop) closeDetail();
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && !detailBackdrop.classList.contains("hidden")) {
+            closeDetail();
+          }
+        });
+        detailRun.addEventListener("click", function () {
+          if (!detailFor) return;
+          const t = detailFor;
+          closeDetail();
+          runBatch("single:" + t.id, [t]);
+        });
+
+        // ==========================================================
+        // Hover / focus preview of which tests a run button will touch
+        // ==========================================================
+        function setWillRunPreview(key) {
+          const included = new Set(testsForKey(key).map(function (t) { return t.id; }));
+          byId.forEach(function (rec) {
+            const v = included.has(rec.test.id) ? "true" : "false";
+            rec.row.setAttribute("data-will-run", v);
+            rec.card.setAttribute("data-will-run", v);
           });
+        }
+        function clearWillRunPreview() {
+          byId.forEach(function (rec) {
+            rec.row.removeAttribute("data-will-run");
+            rec.card.removeAttribute("data-will-run");
+          });
+        }
+
+        // ==========================================================
+        // Batch runner
+        // ==========================================================
+        function resetRowStates(testList) {
+          const includedIds = new Set(testList.map(function (t) { return t.id; }));
+          byId.forEach(function (rec) {
+            if (includedIds.has(rec.test.id)) {
+              setStatus(rec, "pending");
+              rec.msEl.textContent = "-";
+              rec.lastMs = null;
+              // don't blow away old per-test log automatically; only when single-run
+            }
+          });
+        }
+
+        function updatePills(p, f, s) {
+          passedChip.textContent = p + " passed";
+          failedChip.textContent = f + " failed";
+          skippedChip.textContent = s + " skipped";
+        }
+
+        function buttonLabelForKey(key) {
+          switch (key) {
+            case "all-keep": return "Run all (keep data)";
+            case "all-cleanup": return "Run all + cleanup";
+            case "frontend": return "Frontend only";
+            case "setup": return "Setup only";
+            case "unit": return "Unit only";
+            case "e2e": return "E2E only";
+            case "sprint": return "Sprint only";
+            case "cleanup": return "Clean up TEST data";
+            default: return key;
+          }
+        }
+
+        async function runBatch(key, explicitList) {
+          if (activeBatch) {
+            narrativeEl.textContent =
+              "A run is already in progress. Click Abort first.";
+            return;
+          }
+          const isSingle = typeof key === "string" && key.indexOf("single:") === 0;
+          const label = isSingle
+            ? "Single: " + key.slice(7)
+            : buttonLabelForKey(key);
+          const list = explicitList || testsForKey(key);
+          if (!list.length) {
+            narrativeEl.textContent = "No tests match selection '" + label + "'.";
+            return;
+          }
+
+          resetRowStates(list);
+          const batch = {
+            label: label,
+            startedAt: new Date().toISOString(),
+            total: list.length,
+            passed: 0,
+            failed: 0,
+            skipped: 0,
+            aborted: false,
+            tests: list.slice(),
+          };
+          activeBatch = batch;
+          abortBtn.classList.remove("hidden");
+          progressWrap.classList.remove("hidden");
+          progressBar.style.width = "0%";
+          updatePills(0, 0, 0);
+
+          const delay = parseInt(delayInput.value, 10);
+          const delayMs = isNaN(delay) ? undefined : delay;
+
+          for (let i = 0; i < list.length; i++) {
+            const t = list[i];
+            const rec = byId.get(t.id);
+            if (!rec) continue;
+            if (batch.aborted) {
+              setStatus(rec, "skipped");
+              batch.skipped++;
+              continue;
+            }
+
+            setStatus(rec, "running");
+            narrativeEl.textContent =
+              label + " in progress: " +
+              (i + 1) + " of " + list.length +
+              " (" + t.id + ")";
+            progressBar.style.width =
+              Math.round(((i) / list.length) * 100) + "%";
+
+            // Attach logging to the per-test card's <pre>.
+            rec.logEl.classList.remove("hidden");
+            rec.logEl.textContent = "";
+            const lineBuffer = [];
+            function log(msg) {
+              lineBuffer.push(msg);
+              rec.logEl.textContent += msg + "\n";
+              rec.logEl.scrollTop = rec.logEl.scrollHeight;
+            }
+            log("→ " + t.name);
+
+            let outcome;
+            try {
+              outcome = await window.TEST_HARNESS.runTest(t.id, log, delayMs);
+            } catch (e) {
+              outcome = {
+                success: false,
+                ms: 0,
+                testId: t.id,
+                name: t.name,
+                category: t.category,
+                error: e,
+                startedAt: new Date().toISOString(),
+                endedAt: new Date().toISOString(),
+              };
+              log("✗ " + (e.message || e));
+            }
+
+            rec.lastMs = outcome.ms;
+            rec.msEl.textContent = outcome.ms ? outcome.ms + " ms" : "-";
+            if (outcome.success) {
+              setStatus(rec, "passed");
+              batch.passed++;
+            } else {
+              setStatus(rec, "failed");
+              batch.failed++;
+            }
+            updatePills(batch.passed, batch.failed, batch.skipped);
+
+            // Append to the persistent log.
+            appendLogEntry({
+              timestamp: new Date().toISOString(),
+              batchLabel: label,
+              batchStartedAt: batch.startedAt,
+              testId: t.id,
+              name: t.name,
+              category: t.category,
+              result: outcome.success ? "passed" : "failed",
+              ms: outcome.ms || 0,
+              error: outcome.success
+                ? null
+                : (outcome.error && outcome.error.message) || String(outcome.error || ""),
+              logText: lineBuffer.join("\n"),
+            });
+
+            progressBar.style.width =
+              Math.round(((i + 1) / list.length) * 100) + "%";
+          }
+
+          // Final narrative.
+          const wasAborted = batch.aborted;
+          const failedIds = [];
+          byId.forEach(function (rec) {
+            if (rec.status === "failed") failedIds.push(rec.test.id);
+          });
+          // Rebuild failed ids from the current batch (byId.status is stale here
+          // because we don't track status on rec; read from DOM).
+          const failedFromBatch = [];
+          byId.forEach(function (rec) {
+            if (rec.statusEl.textContent === "failed"
+                && batch.tests.indexOf(rec.test) !== -1) {
+              failedFromBatch.push(rec.test.id);
+            }
+          });
+
+          let narrative = label + " complete. ";
+          narrative +=
+            batch.passed + " passed, " +
+            batch.failed + " failed" +
+            (batch.skipped ? ", " + batch.skipped + " skipped (aborted)" : "") +
+            ".";
+          if (batch.failed) {
+            narrative += " Failed: " + failedFromBatch.join(", ") + ".";
+          }
+          // Contextual guidance based on what ran.
+          if (!wasAborted && key === "all-keep") {
+            narrative += " Board state is preserved so you can inspect it on index.html / admin.html. Use Clean up TEST data when you are finished.";
+          } else if (!wasAborted && key === "all-cleanup") {
+            narrative += " TEST rows have been deleted.";
+          } else if (!wasAborted && key === "sprint") {
+            narrative += " game_state was snapshotted and restored for every test that mutated it.";
+          }
+          if (wasAborted) {
+            narrative = "Batch aborted after " + batch.passed + " passed, " +
+              batch.failed + " failed (" + batch.skipped + " skipped).";
+          }
+          narrativeEl.textContent = narrative;
+          progressBar.style.width = "100%";
+
+          abortBtn.classList.add("hidden");
+          activeBatch = null;
+        }
+
+        // ==========================================================
+        // Log panel rendering
+        // ==========================================================
+        function renderLog() {
+          const entries = readLog();
+          const passed = entries.filter(function (e) { return e.result === "passed"; }).length;
+          const failed = entries.filter(function (e) { return e.result === "failed"; }).length;
+          logCount.textContent =
+            "(" + entries.length + " entries · " +
+            passed + " passed, " + failed + " failed" +
+            (entries.length >= LOG_CAP ? ", capped at " + LOG_CAP : "") +
+            ")";
+          if (logBody.classList.contains("hidden")) return;
+          logRows.innerHTML = "";
+          // Newest first for readability.
+          for (let i = entries.length - 1; i >= 0; i--) {
+            const e = entries[i];
+            const tr = document.createElement("tr");
+            tr.className = "border-t border-slate-100";
+            const statusClass =
+              e.result === "passed" ? "text-emerald-700" :
+              e.result === "failed" ? "text-rose-700" : "text-slate-500";
+            tr.innerHTML =
+              '<td class="px-3 py-1.5 whitespace-nowrap">' + escapeHtml(formatTime(e.timestamp)) + '</td>' +
+              '<td class="px-3 py-1.5">' + escapeHtml(e.batchLabel || "") + '</td>' +
+              '<td class="px-3 py-1.5 font-mono">' + escapeHtml(e.testId) + '</td>' +
+              '<td class="px-3 py-1.5">' + escapeHtml(e.category) + '</td>' +
+              '<td class="px-3 py-1.5 font-semibold ' + statusClass + '">' +
+                escapeHtml(e.result) +
+                (e.error ? ' <span class="text-rose-600 font-normal">: ' + escapeHtml(e.error) + '</span>' : '') +
+              '</td>' +
+              '<td class="px-3 py-1.5 text-right">' + (e.ms || 0) + '</td>';
+            logRows.appendChild(tr);
+          }
+        }
+
+        // ==========================================================
+        // Export log as Markdown
+        // ==========================================================
+        function exportLog() {
+          const entries = readLog();
+          if (!entries.length) {
+            alert("No testing history yet.");
+            return;
+          }
+          // Group by batchLabel + batchStartedAt to recreate batches.
+          const batches = {};
+          const orphans = [];
+          entries.forEach(function (e) {
+            if (e.batchStartedAt) {
+              const key = e.batchStartedAt + "|" + (e.batchLabel || "");
+              if (!batches[key]) {
+                batches[key] = {
+                  label: e.batchLabel,
+                  startedAt: e.batchStartedAt,
+                  entries: [],
+                };
+              }
+              batches[key].entries.push(e);
+            } else {
+              orphans.push(e);
+            }
+          });
+          const batchList = Object.keys(batches).map(function (k) { return batches[k]; });
+          batchList.sort(function (a, b) { return a.startedAt < b.startedAt ? -1 : 1; });
+
+          const lines = [];
+          lines.push("# ITS DevSecOps Adventure · Testing log export");
+          lines.push("");
+          lines.push("Generated: " + new Date().toISOString());
+          lines.push("Total entries: " + entries.length);
+          const allPassed = entries.filter(function (e) { return e.result === "passed"; }).length;
+          const allFailed = entries.filter(function (e) { return e.result === "failed"; }).length;
+          lines.push("Passed: " + allPassed + " | Failed: " + allFailed);
+          lines.push("");
+
+          batchList.forEach(function (b) {
+            lines.push("## Batch: " + (b.label || "(ad-hoc)"));
+            lines.push("");
+            lines.push("- Started: " + b.startedAt);
+            lines.push("- Tests: " + b.entries.length);
+            const bp = b.entries.filter(function (e) { return e.result === "passed"; }).length;
+            const bf = b.entries.filter(function (e) { return e.result === "failed"; }).length;
+            lines.push("- Passed: " + bp + " | Failed: " + bf);
+            lines.push("");
+            lines.push("| Time | Test | Category | Result | ms | Error |");
+            lines.push("|---|---|---|---|---|---|");
+            b.entries.forEach(function (e) {
+              const errorCell = (e.error || "").replace(/\|/g, "\\|");
+              lines.push(
+                "| " + formatTime(e.timestamp) +
+                " | `" + e.testId + "`" +
+                " | " + e.category +
+                " | " + e.result +
+                " | " + (e.ms || 0) +
+                " | " + errorCell + " |"
+              );
+            });
+            lines.push("");
+            const failedOnes = b.entries.filter(function (e) { return e.result === "failed"; });
+            if (failedOnes.length) {
+              lines.push("### Failure details for this batch");
+              lines.push("");
+              failedOnes.forEach(function (e) {
+                lines.push("#### `" + e.testId + "`");
+                lines.push("");
+                lines.push("```");
+                lines.push((e.logText || "").trim() || "(no log captured)");
+                lines.push("```");
+                lines.push("");
+              });
+            }
+          });
+
+          if (orphans.length) {
+            lines.push("## Single-test runs");
+            lines.push("");
+            lines.push("| Time | Test | Category | Result | ms | Error |");
+            lines.push("|---|---|---|---|---|---|");
+            orphans.forEach(function (e) {
+              const errorCell = (e.error || "").replace(/\|/g, "\\|");
+              lines.push(
+                "| " + formatTime(e.timestamp) +
+                " | `" + e.testId + "`" +
+                " | " + e.category +
+                " | " + e.result +
+                " | " + (e.ms || 0) +
+                " | " + errorCell + " |"
+              );
+            });
+            lines.push("");
+          }
+
+          const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download =
+            "testing-log-" +
+            new Date().toISOString().replace(/[:.]/g, "-") +
+            ".md";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        }
+
+        // ==========================================================
+        // Wire global controls
+        // ==========================================================
+        render();
+        renderLog();
+
+        document.querySelectorAll("[data-run-key]").forEach(function (btn) {
+          const key = btn.getAttribute("data-run-key");
+          btn.addEventListener("mouseenter", function () { setWillRunPreview(key); });
+          btn.addEventListener("mouseleave", clearWillRunPreview);
+          btn.addEventListener("focus", function () { setWillRunPreview(key); });
+          btn.addEventListener("blur", clearWillRunPreview);
+          btn.addEventListener("click", function () {
+            clearWillRunPreview();
+            runBatch(key);
+          });
+        });
+
+        abortBtn.addEventListener("click", function () {
+          if (activeBatch) {
+            activeBatch.aborted = true;
+            narrativeEl.textContent =
+              "Abort requested. Stopping after the current test...";
+          }
+        });
+
+        document.getElementById("reset-view").addEventListener("click", function () {
+          byId.forEach(function (rec) {
+            setStatus(rec, "pending");
+            rec.msEl.textContent = "-";
+            rec.lastMs = null;
+            rec.logEl.textContent = "";
+            rec.logEl.classList.add("hidden");
+          });
+          updatePills(0, 0, 0);
+          progressWrap.classList.add("hidden");
+          progressBar.style.width = "0%";
+          narrativeEl.textContent =
+            "View reset. Testing history is unchanged; use Clear history to wipe it.";
+          activeBatch = null;
+          abortBtn.classList.add("hidden");
+        });
+
+        toggleLogBtn.addEventListener("click", function () {
+          const hidden = logBody.classList.toggle("hidden");
+          toggleLogBtn.textContent = hidden ? "Show" : "Hide";
+          toggleLogBtn.setAttribute("aria-expanded", hidden ? "false" : "true");
+          if (!hidden) renderLog();
+        });
+        document.getElementById("export-log").addEventListener("click", exportLog);
+        document.getElementById("clear-log").addEventListener("click", function () {
+          if (!confirm(
+            "Clear the entire testing history? This does not delete any DB data."
+          )) return;
+          saveLog([]);
+          renderLog();
         });
       })();
     </script>

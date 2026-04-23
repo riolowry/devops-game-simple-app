@@ -2,7 +2,7 @@
 
 Cloudflare Pages hosts the static frontend for free with generous bandwidth limits. No Git repository required.
 
-Prerequisites: Supabase backend is set up ([SUPABASE_SETUP.md](SUPABASE_SETUP.md)) and `config.js` exists in this folder with your credentials.
+Prerequisites: Supabase backend is set up ([SETUP_SUPABASE_DB.md](SETUP_SUPABASE_DB.md)) and `config.js` exists in this folder with your credentials.
 
 ## Option 1: Direct upload (easiest)
 

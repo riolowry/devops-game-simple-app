@@ -19,29 +19,55 @@ This document covers how to exercise every user flow without logging in and out 
 
 Open `tests.html` in a browser. It uses the same `config.js` as the app, so no setup beyond what you already did for the main app.
 
-Each test has a **Run** button. At the top there are shortcuts:
+Each test has a **Run** button (in both the summary table and the per-test card). Click the **?** button next to any Run button to pop open a dialog explaining exactly what that test does and which category-level safeguards apply.
 
-- **Run all tests**: every test, top to bottom.
-- **Run frontend only**: pure JS logic tests. No database writes. Fast. Covers the permission matrix, batch gate, flaw detection, and facilitator impersonation. If these fail, the game rules are broken.
-- **Run setup only**: health check plus game_state and facilitator presence.
-- **Run E2E only**: the full end-to-end flows.
+At the top, larger shortcuts drive batches:
+
+- **Run all (keep data)**: every test except `cleanup`, in order. TEST rows are left in the database so you can open `index.html` or `admin.html` and inspect state afterward. This is the default.
+- **Run all + cleanup**: every test including `cleanup` at the end. The DB is wiped of `TEST:` / `TEST-` rows when it finishes.
+- **Frontend only**: pure JS logic tests. No database writes. Fast. Covers the permission matrix, batch gate, flaw detection, and facilitator impersonation. If these fail, the game rules themselves are broken.
+- **Setup only**: health check plus `game_state` singleton and facilitator seed presence.
+- **Unit only**: DB-level primitives (create user, claim, batch gate, security rule).
+- **E2E only**: full-pipeline flows.
+- **Sprint only**: tests that mutate `game_state.current_sprint` to exercise sprint 2 and sprint 3 rules. These always snapshot the current `game_state` and auto-restore it on completion or failure, so your real session cannot be left stuck in the wrong sprint.
 - **Clean up TEST data**: deletes anything the tests created. Safe to run any time. Matches by prefix only (`TEST:` on issues, `TEST-` on users), so your real session data is untouched.
+- **Reset view** clears status badges and per-test logs. It does not affect DB data or testing history.
+- **Abort batch** stops a running batch after the current test finishes; remaining tests are marked skipped.
 
-Adjust the **Delay** field (default 1500 ms) to control how fast DB-touching tests animate the board. Set it to 0 for fast CI-style runs, or 2000+ ms if you are using the E2E tests as a live demo. Frontend tests ignore the delay (they do not touch the DB).
+Hover or tab-focus any of these buttons and the summary table and per-test cards below will outline which tests will run (indigo outline) and fade out the ones that won't. This preview costs nothing; there's no "confirm" step, just click.
+
+Adjust the **Delay** field (default 1500 ms) to control how fast DB-touching tests animate the board. Set it to 0 for fast CI-style runs, or 2000+ ms when using E2E tests as a live demo. Frontend tests ignore the delay (they do not touch the DB).
+
+**Run summary** at the top of the page shows, in plain language, what is running, how many passed/failed/skipped so far, a progress bar, and an end-of-run summary that lists any failed test IDs and reminds you whether DB data was preserved.
+
+**All tests table** below the summary lists every test with live status updates, duration, and individual **?** / **Run** buttons. A keyboard user can tab through the **?** buttons to learn what every test does without touching a mouse.
+
+**Testing log** at the bottom is a persistent record of every test run (batched or ad-hoc). It survives page reloads (stored in browser `localStorage`, key `devsec_test_log_v1`, capped at 2000 entries). Three controls:
+
+- **Show/Hide** toggles the log table.
+- **Export (.md)** downloads a Markdown report of every run grouped by batch, with per-batch pass/fail stats and inline failure logs for any failed test. This is the file to attach to a bug report.
+- **Clear history** wipes the stored history after confirmation. Only touches `localStorage`; no DB data is deleted.
 
 What each test covers:
 
-- `fe-*`: frontend unit tests against `window.App.logic` (no DB). Cover role labels, progress/batch-gate, flaw detection, effective role/team, canAct permission matrix, and hacker injection scope.
+- `fe-*`: frontend unit tests against `window.App.logic` (no DB). Cover role labels, progress/batch-gate, flaw detection, effective role/team, canAct permission matrix, hacker injection scope, facilitator impersonation, and create_issue permission.
 - `health`: all five tables are reachable with the anon key.
-- `game-state`: the singleton game_state row exists.
+- `game-state`: the singleton `game_state` row exists.
 - `facilitator-seed`: the `FACIL1` facilitator token from `schema.sql` is present.
 - `u-*`: DB-level unit tests: create user, create issue, claim, batch gate, deterministic security rule.
 - `e2e-happy-path`: Business to Accept with nothing going wrong.
 - `e2e-feedback-loop`: reject from production, pick up, feedback_reason clears.
 - `e2e-security-catches`: hacker injects, security detects and rejects.
 - `e2e-security-misses`: hacker injects, security passes it, business rejects in production. Verifies the retro still sees this miss after the fix.
-- `e2e-container-blocks`: Sprint 3 containerization prevents injection.
+- `e2e-container-blocks`: Sprint 3 containerization prevents injection (logic-level, no `game_state` mutation).
+- `sprint-advance-flow`: walks real `game_state.current_sprint` through 1 → 2 → 3 and resets to 1. Auto-restores the original value.
+- `sprint-config`: writes non-default `security_modulus` and `hacker_count`, then auto-restores.
+- `e2e-sprint2-real-hacker`: sets `current_sprint=2` in the real `game_state`, runs a full hacker-injects-security-catches flow through the live `canAct` path, then auto-restores.
+- `e2e-sprint3-container-blocks`: sets `current_sprint=3`, creates a containerized task, and calls the real `App.logic.canAct` to confirm injection is blocked (both real hacker and facilitator-as-hacker). Auto-restores.
+- `e2e-sprint3-non-container-vulnerable`: negative control for the above. At sprint 3 without the container flag, injection must still succeed; a DB-level injection-to-catch round-trip confirms it. Auto-restores.
 - `cleanup`: remove everything with a `TEST` prefix.
+
+**Sprint-test safety note.** Every test in the `sprint` category calls `ctx.snapshotGameState()` at the start of its run function. The harness's `runTest` wraps the test body in a `try/finally` and calls `ctx.restoreGameState()` in the `finally` branch, so even a failed assertion or thrown exception will not leave the real session's `current_sprint` mutated. If you are running a sprint test while another browser has the board open, that other browser will briefly see the sprint badge flip to 2 or 3 and then back; this is expected and harmless.
 
 ### Mode B: facilitator impersonation
 

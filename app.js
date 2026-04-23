@@ -24,7 +24,7 @@
         <div style="font-family: system-ui; max-width: 600px; margin: 4rem auto; padding: 1rem;">
           <h1>Configuration required</h1>
           <p>Copy <code>config.example.js</code> to <code>config.js</code> and set your
-          Supabase URL and anon key. See <a href="SUPABASE_SETUP.md">SUPABASE_SETUP.md</a>.</p>
+          Supabase URL and anon key. See <a href="SETUP_SUPABASE_DB.md">SETUP_SUPABASE_DB.md</a>.</p>
         </div>
       `;
     });
@@ -1046,8 +1046,7 @@
       // previous_role column existed.
       async demoteHacker(token) {
         const target = this.users.find((u) => u.token === token);
-        const restoreRole =
-          (target && target.previous_role) || "developer";
+        const restoreRole = (target && target.previous_role) || "developer";
         const { error } = await supabase
           .from("users")
           .update({ role: restoreRole, previous_role: null })
