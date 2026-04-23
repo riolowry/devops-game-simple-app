@@ -75,7 +75,7 @@
     tester: "Tester",
     security: "Security",
     release: "Release",
-    admin: "Admin",
+    observer: "Observer",
     hacker: "Developer", // Hacker sees themselves as Developer in the UI
     facilitator: "Facilitator",
   };
@@ -87,9 +87,32 @@
     "tester",
     "security",
     "release",
-    "admin",
+    "observer",
     "hacker",
     "facilitator",
+  ];
+
+  // Participant roles eligible to be secretly promoted to Hacker.
+  // Excludes 'facilitator' (conflict of interest with the audit log)
+  // and 'hacker' itself (already promoted).
+  const HACKER_CANDIDATE_ROLES = [
+    "business",
+    "developer",
+    "tester",
+    "security",
+    "release",
+    "observer",
+  ];
+
+  // Statuses a Hacker may inject flaws into. Excludes:
+  //   'market'        nothing to hack yet (no team, no work)
+  //   'in_production' already deployed; defeats "catch before ship"
+  //   'feedback'      rejected, waiting for rework pickup
+  const HACKER_INJECTABLE_STATUSES = [
+    "in_progress",
+    "testing",
+    "security",
+    "to_deploy",
   ];
 
   // Unambiguous alphabet for token generation (no 0 O I 1 l).
@@ -104,6 +127,130 @@
       t += TOKEN_ALPHABET[arr[i] % TOKEN_ALPHABET.length];
     }
     return t;
+  }
+
+  // ============================================================
+  // Pure logic (testable without Supabase, Alpine, or DOM)
+  // These functions take everything they need as arguments. They
+  // are exposed on window.App.logic at the bottom of this file so
+  // tests-frontend.js can exercise them directly.
+  //
+  // The Alpine store below also delegates to these to avoid
+  // duplicating the rules (single source of truth for permissions
+  // and flaw detection).
+  // ============================================================
+  function logic_rawEffectiveRole(user, impersonation) {
+    if (!user) return null;
+    if (user.role === "facilitator" && impersonation && impersonation.role) {
+      return impersonation.role;
+    }
+    return user.role;
+  }
+
+  function logic_effectiveRole(user, impersonation) {
+    const raw = logic_rawEffectiveRole(user, impersonation);
+    return raw === "hacker" ? "developer" : raw;
+  }
+
+  function logic_effectiveTeam(user, impersonation) {
+    if (!user) return null;
+    if (user.role === "facilitator" && impersonation && impersonation.team) {
+      return impersonation.team;
+    }
+    return user.team;
+  }
+
+  function logic_isHacker(user, impersonation) {
+    return logic_rawEffectiveRole(user, impersonation) === "hacker";
+  }
+
+  function logic_progressFor(issue, tasks) {
+    if (!issue) return { done: 0, total: 0, all: 0 };
+    const ts = (tasks || []).filter((t) => t.parent_issue_id === issue.id);
+    const done = ts.filter((t) => t.status === "complete").length;
+    return { done, total: issue.batch_size, all: ts.length };
+  }
+
+  function logic_batchGateOpen(issue, tasks) {
+    if (!issue) return false;
+    return logic_progressFor(issue, tasks).done >= issue.batch_size;
+  }
+
+  // Deterministic + injected flaw detection. Same rule Security uses.
+  function logic_detectFlaw(issue, securityModulus) {
+    if (!issue) return { has_flaw: false, source: "none" };
+    const modulus = Math.max(2, securityModulus || 7);
+    const deterministic = Number(issue.id) % modulus === 0;
+    const injected = issue.hacked_flag === true;
+    if (injected) return { has_flaw: true, source: "injected" };
+    if (deterministic) return { has_flaw: true, source: "deterministic" };
+    return { has_flaw: false, source: "none" };
+  }
+
+  // canAct: pure permission check. ctx is { gameState, tasks, securityCheckResult }.
+  // Kept deliberately dumb: no side effects, no store reads.
+  function logic_canAct(user, impersonation, issue, action, ctx) {
+    if (!user || !issue) return false;
+    const role = logic_effectiveRole(user, impersonation);
+    const team = logic_effectiveTeam(user, impersonation);
+    const s = issue.status;
+    const gs = (ctx && ctx.gameState) || {};
+    const tasks = (ctx && ctx.tasks) || [];
+    const scr = ctx && ctx.securityCheckResult;
+
+    switch (action) {
+      case "claim":
+        return role === "developer" && s === "market" && !issue.team;
+      case "add_task":
+        return (
+          role === "developer" &&
+          s === "in_progress" &&
+          !!issue.team &&
+          issue.team === team
+        );
+      case "send_to_testing":
+        return (
+          role === "developer" &&
+          s === "in_progress" &&
+          issue.team === team &&
+          logic_batchGateOpen(issue, tasks)
+        );
+      case "pass_testing":
+      case "fail_testing":
+        return role === "tester" && s === "testing";
+      case "run_security":
+        return role === "security" && s === "security";
+      case "pass_security":
+      case "reject_security":
+        return (
+          role === "security" &&
+          s === "security" &&
+          !!scr &&
+          scr.issue_id === issue.id
+        );
+      case "deploy":
+        return role === "release" && s === "to_deploy";
+      case "accept_production":
+      case "reject_production":
+        return role === "business" && s === "in_production";
+      case "pickup_feedback":
+        return role === "developer" && s === "feedback";
+      case "inject_flaw":
+        // Hacker may inject on any team's item (no team restriction),
+        // in any active pipeline status (in_progress through to_deploy),
+        // as long as the item has not already been hacked and is not
+        // containerized. Market/in_production/feedback are excluded
+        // by HACKER_INJECTABLE_STATUSES.
+        return (
+          logic_isHacker(user, impersonation) &&
+          (gs.current_sprint || 1) >= 2 &&
+          HACKER_INJECTABLE_STATUSES.indexOf(s) !== -1 &&
+          !issue.hacked_flag &&
+          !issue.containerized
+        );
+      default:
+        return false;
+    }
   }
 
   // ============================================================
@@ -142,6 +289,10 @@
       realtimeChannels: [],
       securityCheckResult: null,
       loginError: "",
+      // Facilitator-only: lets the facilitator act as another role/team
+      // without logging out. Ignored for non-facilitators. Both fields
+      // empty-string means "observe only" (no action buttons shown).
+      impersonation: { role: "", team: "" },
       _initialized: false, // FIX: idempotency guard for init()
 
       // -------- initialization --------
@@ -181,6 +332,14 @@
           }
         } catch (e) {
           console.warn("localStorage parse failed", e);
+        }
+        // Restore facilitator impersonation (safe no-op for non-facilitators
+        // since effectiveRole/effectiveTeam gate on isFacilitator()).
+        try {
+          const imp = localStorage.getItem("devsec_impersonation");
+          if (imp) this.impersonation = JSON.parse(imp);
+        } catch (e) {
+          /* ignore */
         }
       },
 
@@ -391,14 +550,19 @@
 
       logout() {
         this.user = null;
+        this.impersonation = { role: "", team: "" };
         try {
           localStorage.removeItem("devsec_user");
+          localStorage.removeItem("devsec_impersonation");
         } catch (e) {
           /* ignore */
         }
       },
 
       // -------- derived state / helpers --------
+      // All game-rule functions delegate to the pure `logic_*` helpers
+      // above so the rules are defined exactly once and the tests can
+      // exercise them without Alpine or Supabase.
       issuesInColumn(status) {
         return this.issues.filter((i) => i.status === status);
       },
@@ -406,13 +570,10 @@
         return this.tasks.filter((t) => t.parent_issue_id === issueId);
       },
       progressFor(issue) {
-        const ts = this.tasksForIssue(issue.id);
-        const done = ts.filter((t) => t.status === "complete").length;
-        return { done, total: issue.batch_size, all: ts.length };
+        return logic_progressFor(issue, this.tasks);
       },
       batchGateOpen(issue) {
-        const p = this.progressFor(issue);
-        return p.done >= issue.batch_size;
+        return logic_batchGateOpen(issue, this.tasks);
       },
       userByToken(token) {
         return this.users.find((u) => u.token === token);
@@ -444,72 +605,62 @@
         return ROLE_LABELS[r] || r;
       },
 
+      // Raw role after applying facilitator impersonation (if active).
+      // Hackers get "developer" as their visible role (plus their secret
+      // inject button, gated separately). All methods below are thin
+      // wrappers around the pure logic_* helpers defined at the top of
+      // this file (single source of truth for rules).
+      _rawEffectiveRole() {
+        return logic_rawEffectiveRole(this.user, this.impersonation);
+      },
       effectiveRole() {
-        if (!this.user) return null;
-        return this.user.role === "hacker" ? "developer" : this.user.role;
+        return logic_effectiveRole(this.user, this.impersonation);
+      },
+      effectiveTeam() {
+        return logic_effectiveTeam(this.user, this.impersonation);
       },
       isHacker() {
-        return !!(this.user && this.user.role === "hacker");
+        return logic_isHacker(this.user, this.impersonation);
       },
       isFacilitator() {
         return !!(this.user && this.user.role === "facilitator");
       },
 
-      // Permission matrix. FIX: claim is now on 'market' status (was
-      // incorrectly 'in_progress', which meant nobody could ever move
-      // a new issue off the Market column).
-      canAct(issue, action) {
-        if (!this.user || !issue) return false;
-        const role = this.effectiveRole();
-        const s = issue.status;
-        switch (action) {
-          case "claim":
-            return role === "developer" && s === "market" && !issue.team;
-          case "add_task":
-            return (
-              role === "developer" &&
-              s === "in_progress" &&
-              !!issue.team &&
-              issue.team === this.user.team
-            );
-          case "send_to_testing":
-            return (
-              role === "developer" &&
-              s === "in_progress" &&
-              issue.team === this.user.team &&
-              this.batchGateOpen(issue)
-            );
-          case "pass_testing":
-          case "fail_testing":
-            return role === "tester" && s === "testing";
-          case "run_security":
-            return role === "security" && s === "security";
-          case "pass_security":
-          case "reject_security":
-            return (
-              role === "security" &&
-              s === "security" &&
-              !!this.securityCheckResult &&
-              this.securityCheckResult.issue_id === issue.id
-            );
-          case "deploy":
-            return role === "release" && s === "to_deploy";
-          case "accept_production":
-          case "reject_production":
-            return role === "business" && s === "in_production";
-          case "pickup_feedback":
-            return role === "developer" && s === "feedback";
-          case "inject_flaw":
-            return (
-              this.isHacker() &&
-              this.gameState.current_sprint >= 2 &&
-              (s === "in_progress" || s === "testing") &&
-              !issue.hacked_flag &&
-              !issue.containerized
-            );
-          default:
-            return false;
+      // All team names in current use (derived from users). Used by the
+      // facilitator's impersonation team picker.
+      allTeams() {
+        const teams = new Set();
+        this.users.forEach((u) => {
+          if (u.team) teams.add(u.team);
+        });
+        return Array.from(teams).sort();
+      },
+
+      // Update impersonation, persist to localStorage, clear any stale
+      // per-card state (e.g. an in-progress security check that referenced
+      // the previous role's view).
+      setImpersonation(partial) {
+        this.impersonation = { ...this.impersonation, ...(partial || {}) };
+        this.securityCheckResult = null;
+        try {
+          localStorage.setItem(
+            "devsec_impersonation",
+            JSON.stringify(this.impersonation),
+          );
+        } catch (e) {
+          /* ignore */
         }
+      },
+
+      // Permission matrix. Delegates to logic_canAct so the rules are
+      // defined once. The store just supplies the live context
+      // (gameState, tasks, securityCheckResult).
+      canAct(issue, action) {
+        return logic_canAct(this.user, this.impersonation, issue, action, {
+          gameState: this.gameState,
+          tasks: this.tasks,
+          securityCheckResult: this.securityCheckResult,
+        });
       },
 
       // -------- issue actions --------
@@ -539,20 +690,21 @@
       // assigning the team. Previously only team was set, so the issue
       // stayed in the Market column forever.
       async claimIssue(issue) {
-        if (!this.user || !this.user.team) {
+        const team = this.effectiveTeam();
+        if (!this.user || !team) {
           this.toast("You are not on a team. Ask your facilitator.");
           return;
         }
         const { error } = await supabase
           .from("issues")
-          .update({ team: this.user.team, status: "in_progress" })
+          .update({ team, status: "in_progress" })
           .eq("id", issue.id);
         if (error) {
           console.error("claimIssue:", error);
           this.toast("Claim failed: " + error.message);
           return;
         }
-        this.toast("Claimed for " + this.user.team + ".");
+        this.toast("Claimed for " + team + ".");
       },
 
       async sendToTesting(issue) {
@@ -571,18 +723,11 @@
       },
 
       runSecurityCheck(issue) {
-        const modulus = this.gameState.security_modulus || 7;
-        const deterministic = Number(issue.id) % modulus === 0;
-        const injected = issue.hacked_flag === true;
-        const hasFlaw = deterministic || injected;
+        const res = logic_detectFlaw(issue, this.gameState.security_modulus);
         this.securityCheckResult = {
           issue_id: issue.id,
-          has_flaw: hasFlaw,
-          source: injected
-            ? "injected"
-            : deterministic
-              ? "deterministic"
-              : "none",
+          has_flaw: res.has_flaw,
+          source: res.source,
         };
       },
 
@@ -631,6 +776,16 @@
       },
 
       async acceptProduction(issue) {
+        // Preserve the retrospective audit trail. hacker_log has
+        // ON DELETE CASCADE on target_issue_id, so without this step the
+        // caught/leaked counts lose every flaw that reached production and
+        // was accepted (i.e. the ones we most want to discuss in the retro).
+        // Null the FK first so the log rows persist after issue deletion.
+        await supabase
+          .from("hacker_log")
+          .update({ target_issue_id: null })
+          .eq("target_issue_id", issue.id);
+
         const { error } = await supabase
           .from("issues")
           .delete()
@@ -840,30 +995,53 @@
         await this.updateGameState({ current_sprint: 1 });
       },
 
+      // Promote a participant to Hacker. Any role except facilitator
+      // and current hacker is eligible. We stash the prior role in
+      // `previous_role` so demote can restore it; without this, a
+      // tester-turned-hacker would silently become a developer on demote.
       async promoteToHacker(token) {
+        const target = this.users.find((u) => u.token === token);
+        if (!target) {
+          this.toast("User not found.");
+          return;
+        }
+        if (target.role === "hacker") {
+          this.toast("Already a hacker.");
+          return;
+        }
+        if (target.role === "facilitator") {
+          this.toast("Facilitators cannot be hackers (audit-log integrity).");
+          return;
+        }
         const { error } = await supabase
           .from("users")
-          .update({ role: "hacker" })
+          .update({ role: "hacker", previous_role: target.role })
           .eq("token", token);
         if (error) {
           console.error(error);
           this.toast("Promote failed: " + error.message);
           return;
         }
-        this.toast("Promoted to hacker.");
+        this.toast("Promoted to hacker (was " + target.role + ").");
       },
 
+      // Demote back to whatever role they had before promotion.
+      // Falls back to 'developer' for legacy rows created before the
+      // previous_role column existed.
       async demoteHacker(token) {
+        const target = this.users.find((u) => u.token === token);
+        const restoreRole =
+          (target && target.previous_role) || "developer";
         const { error } = await supabase
           .from("users")
-          .update({ role: "developer" })
+          .update({ role: restoreRole, previous_role: null })
           .eq("token", token);
         if (error) {
           console.error(error);
           this.toast("Demote failed: " + error.message);
           return;
         }
-        this.toast("Demoted to developer.");
+        this.toast("Demoted to " + restoreRole + ".");
       },
 
       async resetIssuesAndTasks() {
@@ -953,9 +1131,23 @@
     COLUMN_LABELS,
     ROLE_LABELS,
     VALID_ROLES,
+    HACKER_CANDIDATE_ROLES,
+    HACKER_INJECTABLE_STATUSES,
     TOKEN_ALPHABET,
     randomToken,
     supabase,
+    // Pure logic (no Alpine, no Supabase, no DOM). Used by the store
+    // above and by tests-frontend.js to exercise the rules directly.
+    logic: {
+      rawEffectiveRole: logic_rawEffectiveRole,
+      effectiveRole: logic_effectiveRole,
+      effectiveTeam: logic_effectiveTeam,
+      isHacker: logic_isHacker,
+      progressFor: logic_progressFor,
+      batchGateOpen: logic_batchGateOpen,
+      detectFlaw: logic_detectFlaw,
+      canAct: logic_canAct,
+    },
     store: function () {
       return window.Alpine && Alpine.store ? Alpine.store("app") : null;
     },

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test harness · ITS DevSecOps Adventure</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <!-- Load app.js so window.App.logic (pure logic helpers) is available
+         to frontend unit tests. app.js has no side effects here because
+         Alpine is never loaded, so its alpine:init listener never fires. -->
+    <script src="app.js"></script>
+    <script src="tests.js"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased p-4 sm:p-6">
+    <div class="max-w-4xl mx-auto">
+      <!-- Header -->
+      <header class="mb-6">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 class="text-2xl font-bold">Test harness</h1>
+            <p class="text-sm text-slate-600 mt-1">
+              Two kinds of tests. <strong>Frontend</strong> tests exercise
+              pure logic (permissions, batch gate, flaw detection) with no
+              DB writes. <strong>Setup / unit / E2E</strong> tests hit
+              Supabase directly. Keep
+              <a
+                href="index.html"
+                target="_blank"
+                class="text-sky-600 underline"
+                >index.html</a
+              >
+              or
+              <a
+                href="admin.html"
+                target="_blank"
+                class="text-sky-600 underline"
+                >admin.html</a
+              >
+              open in another tab to watch cards move in real time during
+              E2E runs.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <label class="flex items-center gap-1">
+              Delay
+              <input
+                id="delay"
+                type="number"
+                value="1500"
+                min="0"
+                step="100"
+                class="w-20 px-2 py-1 border border-slate-300 rounded"
+              />
+              <span>ms</span>
+            </label>
+            <span class="text-slate-400">|</span>
+            <a
+              href="testing.md"
+              target="_blank"
+              class="text-sky-600 underline"
+              >Manual guide</a
+            >
+          </div>
+        </div>
+      </header>
+
+      <!-- Global controls -->
+      <div class="mb-4 flex flex-wrap gap-2">
+        <button
+          id="run-all"
+          class="px-4 py-2 bg-slate-900 text-white rounded hover:bg-slate-800"
+        >
+          Run all tests
+        </button>
+        <button
+          id="run-frontend"
+          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          title="Pure frontend logic tests. No DB writes."
+        >
+          Run frontend only
+        </button>
+        <button
+          id="run-setup"
+          class="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-800"
+        >
+          Run setup only
+        </button>
+        <button
+          id="run-e2e"
+          class="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-800"
+        >
+          Run E2E only
+        </button>
+        <button
+          id="cleanup"
+          class="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
+        >
+          Clean up TEST data
+        </button>
+        <button
+          id="reset"
+          class="px-3 py-2 border border-slate-300 rounded hover:bg-white"
+        >
+          Reset view
+        </button>
+      </div>
+
+      <!-- Summary -->
+      <div
+        id="summary"
+        class="mb-4 p-3 bg-white border border-slate-200 rounded text-sm flex items-center justify-between"
+      >
+        <span id="summary-text">No tests run yet.</span>
+        <span id="running-indicator" class="hidden text-amber-600 text-xs"
+          >running…</span
+        >
+      </div>
+
+      <!-- Tests -->
+      <div id="tests-list" class="space-y-3"></div>
+
+      <!-- Footer notes -->
+      <footer class="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-500">
+        <p>
+          Tests create rows prefixed with <code>TEST:</code> (issues) and
+          <code>TEST-</code> (users). Cleanup matches those prefixes, so your
+          real session data is left alone. Cascades remove tasks and
+          issue-linked hacker_log rows automatically.
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        // ==========================================================
+        // Render helpers
+        // ==========================================================
+        const listEl = document.getElementById("tests-list");
+        const summaryEl = document.getElementById("summary-text");
+        const runningEl = document.getElementById("running-indicator");
+        const delayInput = document.getElementById("delay");
+
+        let stats = { run: 0, pass: 0, fail: 0 };
+
+        // Status badge styles
+        const STATUS_CLASSES = {
+          pending: "bg-slate-100 text-slate-700",
+          running: "bg-amber-100 text-amber-800",
+          passed: "bg-emerald-100 text-emerald-800",
+          failed: "bg-rose-100 text-rose-800",
+        };
+
+        // Category badge styles
+        const CATEGORY_CLASSES = {
+          setup: "bg-sky-100 text-sky-800",
+          frontend: "bg-indigo-100 text-indigo-800",
+          unit: "bg-violet-100 text-violet-800",
+          e2e: "bg-emerald-100 text-emerald-800",
+          cleanup: "bg-amber-100 text-amber-800",
+        };
+
+        function updateSummary() {
+          summaryEl.textContent =
+            "Run: " +
+            stats.run +
+            " · Passed: " +
+            stats.pass +
+            " · Failed: " +
+            stats.fail;
+        }
+
+        // Build a card for one test and return { card, run }.
+        // The returned run() is reused by "Run all" etc.
+        function renderTestCard(t) {
+          const card = document.createElement("div");
+          card.className =
+            "bg-white border border-slate-200 rounded-lg p-3";
+          card.dataset.category = t.category;
+
+          card.innerHTML =
+            '<div class="flex items-start justify-between gap-3 flex-wrap">' +
+            '  <div class="flex-1 min-w-0">' +
+            '    <div class="flex items-center gap-2 mb-1">' +
+            '      <span class="test-cat text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full"></span>' +
+            '      <span class="test-status text-xs px-2 py-0.5 rounded-full"></span>' +
+            "    </div>" +
+            '    <div class="font-semibold test-name"></div>' +
+            '    <div class="text-sm text-slate-600 test-desc"></div>' +
+            "  </div>" +
+            '  <button class="test-run px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800 min-h-[36px]">Run</button>' +
+            "</div>" +
+            '<pre class="test-log mt-3 hidden bg-slate-900 text-slate-100 text-xs p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap"></pre>';
+
+          card.querySelector(".test-name").textContent = t.name;
+          card.querySelector(".test-desc").textContent = t.description || "";
+
+          const catEl = card.querySelector(".test-cat");
+          catEl.textContent = t.category;
+          catEl.className =
+            "test-cat text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full " +
+            (CATEGORY_CLASSES[t.category] || "bg-slate-100 text-slate-700");
+
+          const statusEl = card.querySelector(".test-status");
+          const logEl = card.querySelector(".test-log");
+          const runBtn = card.querySelector(".test-run");
+
+          function setStatus(s) {
+            statusEl.textContent = s;
+            statusEl.className =
+              "test-status text-xs px-2 py-0.5 rounded-full " +
+              (STATUS_CLASSES[s] || STATUS_CLASSES.pending);
+          }
+          setStatus("pending");
+
+          async function run() {
+            logEl.classList.remove("hidden");
+            logEl.textContent = "";
+            setStatus("running");
+            runningEl.classList.remove("hidden");
+
+            const log = (m) => {
+              logEl.textContent += m + "\n";
+              logEl.scrollTop = logEl.scrollHeight;
+            };
+            log("→ " + t.name);
+
+            stats.run++;
+            const delay = parseInt(delayInput.value, 10);
+            const result = await window.TEST_HARNESS.runTest(
+              t.id,
+              log,
+              isNaN(delay) ? undefined : delay,
+            );
+
+            if (result.success) {
+              setStatus("passed");
+              stats.pass++;
+            } else {
+              setStatus("failed");
+              stats.fail++;
+            }
+            updateSummary();
+            runningEl.classList.add("hidden");
+            return result;
+          }
+
+          runBtn.addEventListener("click", run);
+          return { card, run, test: t };
+        }
+
+        // ==========================================================
+        // Mount
+        // ==========================================================
+        if (!window.TEST_HARNESS) {
+          summaryEl.textContent =
+            "Test harness failed to load. Check config.js.";
+          return;
+        }
+
+        const rendered = window.TEST_HARNESS.tests.map((t) => {
+          const r = renderTestCard(t);
+          listEl.appendChild(r.card);
+          return r;
+        });
+
+        // ==========================================================
+        // Global control handlers
+        // ==========================================================
+        async function runFiltered(predicate) {
+          for (const r of rendered) {
+            if (predicate(r.test)) await r.run();
+          }
+        }
+
+        document
+          .getElementById("run-all")
+          .addEventListener("click", () => runFiltered(() => true));
+        document
+          .getElementById("run-frontend")
+          .addEventListener("click", () =>
+            runFiltered((t) => t.category === "frontend"),
+          );
+        document
+          .getElementById("run-setup")
+          .addEventListener("click", () =>
+            runFiltered((t) => t.category === "setup"),
+          );
+        document
+          .getElementById("run-e2e")
+          .addEventListener("click", () =>
+            runFiltered((t) => t.category === "e2e"),
+          );
+        document
+          .getElementById("cleanup")
+          .addEventListener("click", async () => {
+            const cleanupCard = rendered.find(
+              (r) => r.test.id === "cleanup",
+            );
+            if (cleanupCard) await cleanupCard.run();
+          });
+        document.getElementById("reset").addEventListener("click", () => {
+          stats = { run: 0, pass: 0, fail: 0 };
+          updateSummary();
+          document.querySelectorAll(".test-status").forEach((el) => {
+            el.textContent = "pending";
+            el.className =
+              "test-status text-xs px-2 py-0.5 rounded-full " +
+              STATUS_CLASSES.pending;
+          });
+          document.querySelectorAll(".test-log").forEach((el) => {
+            el.textContent = "";
+            el.classList.add("hidden");
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

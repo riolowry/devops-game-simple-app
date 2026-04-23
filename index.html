@@ -70,14 +70,16 @@
             </div>
           </div>
 
-          <!-- Role + team badge -->
+          <!-- Role + team badge. Uses effective role/team so facilitators
+               who are impersonating see the participant's view (that way
+               nothing above the footer bar hints they are a facilitator). -->
           <div class="hidden sm:block text-right">
             <div class="text-xs text-slate-500">Signed in as</div>
             <div class="text-sm font-medium">
-              <span x-text="$store.app.roleLabel($store.app.user.role)"></span>
-              <template x-if="$store.app.user.team">
+              <span x-text="$store.app.roleLabel($store.app.effectiveRole())"></span>
+              <template x-if="$store.app.effectiveTeam()">
                 <span class="text-slate-500">
-                  · <span x-text="$store.app.user.team"></span>
+                  · <span x-text="$store.app.effectiveTeam()"></span>
                 </span>
               </template>
             </div>
@@ -104,11 +106,11 @@
           </button>
         </div>
 
-        <!-- Small-screen role/team badge -->
+        <!-- Small-screen role/team badge (also uses effective values). -->
         <div class="sm:hidden px-3 pb-2 text-xs text-slate-600">
-          <span class="font-medium" x-text="$store.app.roleLabel($store.app.user.role)"></span>
-          <template x-if="$store.app.user.team">
-            <span> · <span x-text="$store.app.user.team"></span></span>
+          <span class="font-medium" x-text="$store.app.roleLabel($store.app.effectiveRole())"></span>
+          <template x-if="$store.app.effectiveTeam()">
+            <span> · <span x-text="$store.app.effectiveTeam()"></span></span>
           </template>
           <template x-if="$store.app.user.token">
             <span class="ml-2 font-mono text-slate-400" x-text="$store.app.user.token"></span>
@@ -506,7 +508,7 @@
               <li><strong>Tester</strong>: Passes or fails requests in Testing by visual inspection of the attached images.</li>
               <li><strong>Security</strong>: Runs a Security Check on items in the Security column. Passes or rejects.</li>
               <li><strong>Release</strong>: Deploys items in To Deploy to In Production.</li>
-              <li><strong>Admin</strong>: Read-only visibility across the whole board.</li>
+              <li><strong>Observer</strong>: Read-only visibility across the whole board.</li>
             </ul>
             <h3>Colouring pages</h3>
             <p>Use <a href="https://www.online-coloring.com" target="_blank" rel="noopener">online-coloring.com</a> to colour the pages. When you finish a page, save or screenshot it, upload to any image host (imgur, postimg, etc.), and paste the URL into your Task.</p>
@@ -520,11 +522,65 @@
         </div>
       </div>
 
-      <!-- Toast -->
+      <!-- Toast. Lifted above the facilitator footer so they don't collide. -->
       <div x-show="$store.app.toastMsg"
            x-transition.opacity
-           class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
+           :class="$store.app.isFacilitator() ? 'bottom-20' : 'bottom-4'"
+           class="fixed left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
            x-text="$store.app.toastMsg"></div>
+
+      <!-- ============================================================
+           FACILITATOR IMPERSONATION BAR (fixed to the bottom edge)
+           Only visible to facilitators. Deliberately low-contrast so the
+           rest of the page above it matches what participants see. Lets
+           the facilitator swap roles and teams at any time without logging
+           out.
+           ============================================================ -->
+      <template x-if="$store.app.isFacilitator()">
+        <div class="fixed inset-x-0 bottom-0 z-40 bg-indigo-50/95 backdrop-blur border-t border-indigo-200 shadow-lg">
+          <div class="px-3 sm:px-6 py-2 flex items-center gap-2 text-xs text-indigo-900 flex-wrap">
+            <span class="font-medium uppercase tracking-wide text-[10px] text-indigo-700">Facilitator</span>
+            <span class="hidden sm:inline text-indigo-700/70">simulate:</span>
+            <select x-model="$store.app.impersonation.role"
+                    @change="$store.app.setImpersonation({ role: $event.target.value })"
+                    class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]">
+              <option value="">Observe only</option>
+              <option value="business">as Business</option>
+              <option value="developer">as Developer</option>
+              <option value="tester">as Tester</option>
+              <option value="security">as Security</option>
+              <option value="release">as Release</option>
+              <option value="observer">as Observer</option>
+              <option value="hacker">as Hacker</option>
+            </select>
+            <select x-model="$store.app.impersonation.team"
+                    @change="$store.app.setImpersonation({ team: $event.target.value })"
+                    x-show="!!$store.app.impersonation.role"
+                    class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]">
+              <option value="">(no team)</option>
+              <template x-for="t in $store.app.allTeams()" :key="t">
+                <option :value="t" x-text="t"></option>
+              </template>
+            </select>
+            <template x-if="$store.app.impersonation.role">
+              <button @click="$store.app.setImpersonation({ role: '', team: '' })"
+                      class="ml-auto px-2 py-1 text-indigo-700 hover:text-indigo-900 underline">
+                Stop simulating
+              </button>
+            </template>
+            <template x-if="!$store.app.impersonation.role">
+              <span class="ml-auto text-indigo-700/60 hidden sm:inline">
+                Pick a role to act as a participant. Nothing above this bar gives you away.
+              </span>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Bottom padding so board cards aren't hidden behind the footer. -->
+      <template x-if="$store.app.isFacilitator()">
+        <div class="h-12" aria-hidden="true"></div>
+      </template>
 
     </div>
   </template>
