@@ -86,4 +86,4 @@ As Security, you do not need to know which kind it is. The check tells you both.
 
 ## Credits
 
-Based on Pylayeva, D. (2024). *DevSecOps Adventures*. Adapted from the [johnanvik/devops-colouring](https://github.com/johnanvik/devops-colouring) exercise.
+Based on Pylayeva, D. (2024). _DevSecOps Adventures_. Adapted from the [johnanvik/devops-colouring](https://github.com/johnanvik/devops-colouring) exercise.

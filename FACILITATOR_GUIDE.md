@@ -49,6 +49,7 @@ Generated tokens appear in a yellow "New tokens" box at the top. **Print this pa
 ### 5. Prepare handouts
 
 Print a card for each participant showing:
+
 - Their token
 - Their role
 - Their team (if any)
@@ -144,15 +145,15 @@ You can leave the Supabase project running. The free tier has no ongoing costs. 
 
 ## Cheat sheet
 
-| Situation | Where to go |
-|---|---|
-| Make tokens | Admin → Users |
-| Bulk import a roster | Admin → Users → Bulk create |
-| Promote a Hacker | Admin → Sprint → Eligible participants list → Make Hacker |
-| Advance the sprint | Admin → Sprint → Advance Sprint |
-| Tune flaw rate | Admin → Config → Security modulus |
-| Watch hacker activity | Admin → Log |
-| See all hacked items | Admin → Board (look for `[!]`) |
-| Export for retro | Admin → Export |
-| Clear the board, keep users | Admin → Reset → Reset Issues and Tasks |
-| Clear everything | Admin → Reset → Reset Everything |
+| Situation                   | Where to go                                               |
+| --------------------------- | --------------------------------------------------------- |
+| Make tokens                 | Admin → Users                                             |
+| Bulk import a roster        | Admin → Users → Bulk create                               |
+| Promote a Hacker            | Admin → Sprint → Eligible participants list → Make Hacker |
+| Advance the sprint          | Admin → Sprint → Advance Sprint                           |
+| Tune flaw rate              | Admin → Config → Security modulus                         |
+| Watch hacker activity       | Admin → Log                                               |
+| See all hacked items        | Admin → Board (look for `[!]`)                            |
+| Export for retro            | Admin → Export                                            |
+| Clear the board, keep users | Admin → Reset → Reset Issues and Tasks                    |
+| Clear everything            | Admin → Reset → Reset Everything                          |

@@ -47,9 +47,7 @@
       a.textContent = ALLOWED[filename];
       a.className =
         "block px-2 py-1 rounded text-sm " +
-        (filename === doc
-          ? "bg-slate-900 text-white font-medium"
-          : "text-slate-700 hover:bg-slate-100");
+        (filename === doc ? "bg-slate-900 text-white font-medium" : "text-slate-700 hover:bg-slate-100");
       li.appendChild(a);
       ul.appendChild(li);
     });
@@ -109,7 +107,7 @@
       // untrusted input. The .md files come from the project bundle.
     });
 
-    fetch(doc, { cache: "no-cache" })
+    fetch(doc, {cache: "no-cache"})
       .then(function (r) {
         if (!r.ok) throw new Error("Fetch failed: " + r.status);
         return r.text();
@@ -139,8 +137,7 @@
   function buildToc() {
     const headings = contentEl.querySelectorAll("h2, h3");
     if (!headings.length) {
-      tocEl.innerHTML =
-        '<p class="text-xs text-slate-500">No table of contents.</p>';
+      tocEl.innerHTML = '<p class="text-xs text-slate-500">No table of contents.</p>';
       return;
     }
     const ul = document.createElement("ul");
@@ -159,8 +156,7 @@
       const a = document.createElement("a");
       a.href = "#" + h.id;
       a.textContent = h.textContent;
-      a.className =
-        "block px-2 py-0.5 rounded text-slate-700 hover:bg-slate-100 truncate";
+      a.className = "block px-2 py-0.5 rounded text-slate-700 hover:bg-slate-100 truncate";
       li.appendChild(a);
       ul.appendChild(li);
     });
@@ -170,9 +166,7 @@
 
   function highlightCurrentHash() {
     if (!window.location.hash) return;
-    const target = document.getElementById(
-      decodeURIComponent(window.location.hash.slice(1)),
-    );
-    if (target) target.scrollIntoView({ block: "start" });
+    const target = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (target) target.scrollIntoView({block: "start"});
   }
 })();

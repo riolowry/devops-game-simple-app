@@ -2,44 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ITS DevSecOps Adventure</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
-    <script
-      defer
-      src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"
-    ></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
   </head>
 
-  <body
-    class="bg-slate-50 text-slate-900 antialiased"
-    x-data
-    x-init="$store.app.init()"
-  >
+  <body class="bg-slate-50 text-slate-900 antialiased" x-data x-init="$store.app.init()">
     <!-- ============================================================
        LOGIN SCREEN
        ============================================================ -->
     <template x-if="!$store.app.user">
       <div class="min-h-screen flex items-center justify-center p-4">
-        <div
-          class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8"
-        >
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
           <h1 class="text-2xl font-bold">ITS DevSecOps Adventure</h1>
-          <p class="text-slate-600 mt-2 text-sm">
-            Enter your participant token to join.
-          </p>
+          <p class="text-slate-600 mt-2 text-sm">Enter your participant token to join.</p>
 
-          <form
-            class="mt-6 space-y-4"
-            @submit.prevent="$store.app.login($refs.tokenInput.value)"
-          >
+          <form class="mt-6 space-y-4" @submit.prevent="$store.app.login($refs.tokenInput.value)">
             <div>
               <label class="block text-sm font-medium mb-1">Token</label>
               <input
@@ -49,29 +32,24 @@
                 autocapitalize="characters"
                 spellcheck="false"
                 placeholder="e.g. K7QX39"
-                class="w-full uppercase tracking-widest font-mono text-lg px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
+                class="w-full uppercase tracking-widest font-mono text-lg px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" />
             </div>
             <button
               type="submit"
-              class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 active:bg-slate-700"
-            >
+              class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 active:bg-slate-700">
               Join
             </button>
             <p
               x-show="$store.app.loginError"
               x-text="$store.app.loginError"
-              class="text-sm text-rose-600 text-center"
-            ></p>
+              class="text-sm text-rose-600 text-center"></p>
           </form>
 
-          <div
-            class="mt-8 pt-6 border-t border-slate-200 text-xs text-slate-500"
-          >
+          <div class="mt-8 pt-6 border-t border-slate-200 text-xs text-slate-500">
             <p>
               Facilitators: open
-              <a href="admin.html" class="text-sky-600 underline">admin.html</a
-              >.
+              <a href="admin.html" class="text-sky-600 underline">admin.html</a>
+              .
             </p>
           </div>
         </div>
@@ -82,26 +60,17 @@
        MAIN APP (after login)
        ============================================================ -->
     <template x-if="$store.app.user">
-      <div
-        class="min-h-screen flex flex-col"
-        x-data="{ openIssue: null, helpOpen: false, tab: 'board' }"
-      >
+      <div class="min-h-screen flex flex-col" x-data="{ openIssue: null, helpOpen: false, tab: 'board' }">
         <!-- Header -->
         <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
           <div class="px-3 sm:px-6 py-3 flex items-center gap-2 sm:gap-4">
             <div class="min-w-0 flex-1">
-              <div
-                class="text-xs text-slate-500 truncate"
-                x-text="$store.app.gameState.session_label"
-              ></div>
+              <div class="text-xs text-slate-500 truncate" x-text="$store.app.gameState.session_label"></div>
               <div class="flex items-baseline gap-2">
-                <h1 class="font-bold text-base sm:text-lg">
-                  DevSecOps Adventure
-                </h1>
+                <h1 class="font-bold text-base sm:text-lg">DevSecOps Adventure</h1>
                 <span
                   class="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full"
-                  x-text="'Sprint ' + $store.app.gameState.current_sprint"
-                ></span>
+                  x-text="'Sprint ' + $store.app.gameState.current_sprint"></span>
               </div>
             </div>
 
@@ -111,22 +80,18 @@
             <div class="hidden sm:block text-right">
               <div class="text-xs text-slate-500">Signed in as</div>
               <div class="text-sm font-medium">
-                <span
-                  x-text="$store.app.roleLabel($store.app.effectiveRole())"
-                ></span>
+                <span x-text="$store.app.roleLabel($store.app.effectiveRole())"></span>
                 <template x-if="$store.app.effectiveTeam()">
                   <span class="text-slate-500">
-                    · <span x-text="$store.app.effectiveTeam()"></span>
+                    ·
+                    <span x-text="$store.app.effectiveTeam()"></span>
                   </span>
                 </template>
               </div>
             </div>
 
             <!-- Connection indicator -->
-            <div
-              class="flex items-center"
-              :title="'Sync: ' + $store.app.connectionMode"
-            >
+            <div class="flex items-center" :title="'Sync: ' + $store.app.connectionMode">
               <span
                 class="w-2.5 h-2.5 rounded-full"
                 :class="{
@@ -134,38 +99,32 @@
                     'bg-amber-500':   $store.app.connectionMode === 'polling',
                     'bg-rose-500':    $store.app.connectionMode === 'disconnected',
                     'bg-slate-300':   $store.app.connectionMode === 'connecting'
-                  }"
-              ></span>
+                  }"></span>
             </div>
 
             <button
               @click="helpOpen = true"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0"
-            >
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0">
               Help
             </button>
             <button
               @click="$store.app.logout()"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0"
-            >
+              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0">
               Exit
             </button>
           </div>
 
           <!-- Small-screen role/team badge (also uses effective values). -->
           <div class="sm:hidden px-3 pb-2 text-xs text-slate-600">
-            <span
-              class="font-medium"
-              x-text="$store.app.roleLabel($store.app.effectiveRole())"
-            ></span>
+            <span class="font-medium" x-text="$store.app.roleLabel($store.app.effectiveRole())"></span>
             <template x-if="$store.app.effectiveTeam()">
-              <span> · <span x-text="$store.app.effectiveTeam()"></span></span>
+              <span>
+                ·
+                <span x-text="$store.app.effectiveTeam()"></span>
+              </span>
             </template>
             <template x-if="$store.app.user.token">
-              <span
-                class="ml-2 font-mono text-slate-400"
-                x-text="$store.app.user.token"
-              ></span>
+              <span class="ml-2 font-mono text-slate-400" x-text="$store.app.user.token"></span>
             </template>
           </div>
 
@@ -174,13 +133,9 @@
             <template x-for="s in $store.app.columnOrder()" :key="s">
               <a
                 :href="'#col-' + s"
-                class="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700"
-              >
+                class="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">
                 <span x-text="$store.app.columnLabel(s)"></span>
-                <span
-                  class="ml-1 text-slate-500"
-                  x-text="'(' + $store.app.issuesInColumn(s).length + ')'"
-                ></span>
+                <span class="ml-1 text-slate-500" x-text="'(' + $store.app.issuesInColumn(s).length + ')'"></span>
               </a>
             </template>
           </nav>
@@ -191,94 +146,54 @@
            Horizontal scroll with snap on mobile; columns visible on wide screens
            ============================================================ -->
         <main class="flex-1 overflow-hidden">
-          <div
-            class="h-full overflow-x-auto snap-x snap-mandatory sm:snap-none px-3 sm:px-6 py-4"
-          >
+          <div class="h-full overflow-x-auto snap-x snap-mandatory sm:snap-none px-3 sm:px-6 py-4">
             <div class="flex gap-3 sm:gap-4 h-full min-h-[60vh]">
-              <template
-                x-for="status in $store.app.columnOrder()"
-                :key="status"
-              >
+              <template x-for="status in $store.app.columnOrder()" :key="status">
                 <section
                   :id="'col-' + status"
-                  class="snap-start shrink-0 w-[85vw] sm:w-80 bg-slate-100 rounded-xl flex flex-col max-h-full"
-                >
-                  <header
-                    class="px-3 py-2 border-b border-slate-200 flex items-baseline justify-between"
-                  >
-                    <h2
-                      class="font-semibold text-sm"
-                      x-text="$store.app.columnLabel(status)"
-                    ></h2>
-                    <span
-                      class="text-xs text-slate-500"
-                      x-text="$store.app.issuesInColumn(status).length"
-                    ></span>
+                  class="snap-start shrink-0 w-[85vw] sm:w-80 bg-slate-100 rounded-xl flex flex-col max-h-full">
+                  <header class="px-3 py-2 border-b border-slate-200 flex items-baseline justify-between">
+                    <h2 class="font-semibold text-sm" x-text="$store.app.columnLabel(status)"></h2>
+                    <span class="text-xs text-slate-500" x-text="$store.app.issuesInColumn(status).length"></span>
                   </header>
 
-                  <div
-                    class="overflow-y-auto p-2 space-y-2 flex-1 min-h-[200px]"
-                  >
-                    <template
-                      x-for="issue in $store.app.issuesInColumn(status)"
-                      :key="issue.id"
-                    >
+                  <div class="overflow-y-auto p-2 space-y-2 flex-1 min-h-[200px]">
+                    <template x-for="issue in $store.app.issuesInColumn(status)" :key="issue.id">
                       <button
                         @click="openIssue = issue"
-                        class="w-full text-left bg-white p-3 rounded-lg border border-slate-200 hover:border-slate-400 hover:shadow-sm min-h-[80px]"
-                      >
+                        class="w-full text-left bg-white p-3 rounded-lg border border-slate-200 hover:border-slate-400 hover:shadow-sm min-h-[80px]">
                         <div class="flex items-start gap-2">
-                          <span
-                            class="font-mono text-xs text-slate-400"
-                            x-text="'#' + issue.id"
-                          ></span>
-                          <span
-                            class="flex-1 font-medium text-sm"
-                            x-text="issue.title"
-                          ></span>
+                          <span class="font-mono text-xs text-slate-400" x-text="'#' + issue.id"></span>
+                          <span class="flex-1 font-medium text-sm" x-text="issue.title"></span>
                         </div>
                         <div class="mt-2 flex flex-wrap gap-1.5">
                           <template x-if="issue.team">
                             <span
                               class="text-xs px-2 py-0.5 rounded-full"
                               :class="$store.app.teamColor(issue.team)"
-                              x-text="issue.team"
-                            ></span>
+                              x-text="issue.team"></span>
                           </template>
                           <span
                             class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800"
-                            x-text="'$' + issue.price"
-                          ></span>
+                            x-text="'$' + issue.price"></span>
                           <span
                             class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700"
-                            x-text="'Batch ' + $store.app.progressFor(issue).done + '/' + issue.batch_size"
-                          ></span>
+                            x-text="'Batch ' + $store.app.progressFor(issue).done + '/' + issue.batch_size"></span>
                           <template x-if="issue.containerized">
-                            <span
-                              class="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800"
-                              >container</span
-                            >
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800">container</span>
                           </template>
-                          <template
-                            x-if="issue.feedback_reason && issue.status === 'feedback'"
-                          >
-                            <span
-                              class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800"
-                              >rejected</span
-                            >
+                          <template x-if="issue.feedback_reason && issue.status === 'feedback'">
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">rejected</span>
                           </template>
                         </div>
                       </button>
                     </template>
 
                     <!-- Business: create issue button in Market column -->
-                    <template
-                      x-if="status === 'market' && $store.app.effectiveRole() === 'business'"
-                    >
+                    <template x-if="status === 'market' && $store.app.effectiveRole() === 'business'">
                       <button
                         @click="openIssue = 'new'"
-                        class="w-full text-sm py-3 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700 min-h-[60px]"
-                      >
+                        class="w-full text-sm py-3 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700 min-h-[60px]">
                         + New Product Request
                       </button>
                     </template>
@@ -297,26 +212,22 @@
           x-show="openIssue"
           x-transition.opacity
           @keydown.escape.window="openIssue = null"
-          class="fixed inset-0 bg-black/50 z-30 flex sm:items-center sm:justify-center"
-        >
+          class="fixed inset-0 bg-black/50 z-30 flex sm:items-center sm:justify-center">
           <div
             class="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl overflow-y-auto shadow-2xl"
-            @click.stop
-          >
+            @click.stop>
             <!-- NEW ISSUE FORM -->
             <template x-if="openIssue === 'new'">
               <form
                 class="p-5 sm:p-6 space-y-4"
                 x-data="{ title: '', description_url: '', price: 100, batch_size: 1 }"
-                @submit.prevent="await $store.app.createIssue({ title, description_url, price, batch_size }); openIssue = null"
-              >
+                @submit.prevent="await $store.app.createIssue({ title, description_url, price, batch_size }); openIssue = null">
                 <div class="flex items-start justify-between">
                   <h2 class="text-xl font-bold">New Product Request</h2>
                   <button
                     type="button"
                     @click="openIssue = null"
-                    class="text-slate-400 hover:text-slate-600 text-2xl leading-none"
-                  >
+                    class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
                     &times;
                   </button>
                 </div>
@@ -327,19 +238,15 @@
                     type="text"
                     required
                     placeholder="e.g. Puppy Sitting"
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                  />
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium mb-1"
-                    >Colouring page URL</label
-                  >
+                  <label class="block text-sm font-medium mb-1">Colouring page URL</label>
                   <input
                     x-model="description_url"
                     type="url"
                     placeholder="https://www.online-coloring.com/..."
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                  />
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -348,33 +255,27 @@
                       x-model.number="price"
                       type="number"
                       min="1"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                    />
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
                   </div>
                   <div>
-                    <label class="block text-sm font-medium mb-1"
-                      >Batch size</label
-                    >
+                    <label class="block text-sm font-medium mb-1">Batch size</label>
                     <input
                       x-model.number="batch_size"
                       type="number"
                       min="1"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                    />
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
                   </div>
                 </div>
                 <div class="flex gap-2 pt-2">
                   <button
                     type="submit"
-                    class="flex-1 bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 min-h-[44px]"
-                  >
+                    class="flex-1 bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 min-h-[44px]">
                     Create
                   </button>
                   <button
                     type="button"
                     @click="openIssue = null"
-                    class="px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[44px]"
-                  >
+                    class="px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[44px]">
                     Cancel
                   </button>
                 </div>
@@ -390,25 +291,22 @@
                    taskUrl: {},
                    rejectReason: '',
                    showReject: false
-                 }"
-              >
+                 }">
                 <!-- Header -->
                 <div class="flex items-start justify-between gap-4">
                   <div class="min-w-0">
                     <div class="text-xs text-slate-500 font-mono">
-                      #<span x-text="openIssue.id"></span>
+                      #
+                      <span x-text="openIssue.id"></span>
                     </div>
                     <h2 class="text-xl font-bold" x-text="openIssue.title"></h2>
                     <div class="mt-1 text-xs text-slate-500">
-                      <span
-                        x-text="'Sprint ' + openIssue.sprint_created"
-                      ></span>
+                      <span x-text="'Sprint ' + openIssue.sprint_created"></span>
                     </div>
                   </div>
                   <button
                     @click="openIssue = null; $store.app.securityCheckResult = null"
-                    class="text-slate-400 hover:text-slate-600 text-2xl leading-none"
-                  >
+                    class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
                     &times;
                   </button>
                 </div>
@@ -420,35 +318,24 @@
                   <template x-if="openIssue.team">
                     <span
                       class="text-sm px-3 py-1 rounded-full font-semibold"
-                      :class="$store.app.teamColor(openIssue.team)"
-                    >
+                      :class="$store.app.teamColor(openIssue.team)">
                       <span x-text="openIssue.team"></span>
                     </span>
                   </template>
                   <template x-if="!openIssue.team">
-                    <span
-                      class="text-sm px-3 py-1 rounded-full bg-slate-200 text-slate-600 italic"
-                    >
-                      Unclaimed
-                    </span>
+                    <span class="text-sm px-3 py-1 rounded-full bg-slate-200 text-slate-600 italic">Unclaimed</span>
                   </template>
                   <span
                     class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700"
-                    x-text="$store.app.columnLabel(openIssue.status)"
-                  ></span>
+                    x-text="$store.app.columnLabel(openIssue.status)"></span>
                   <span
                     class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800"
-                    x-text="'Price: $' + openIssue.price"
-                  ></span>
+                    x-text="'Price: $' + openIssue.price"></span>
                   <span
                     class="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-700"
-                    x-text="'Batch: ' + $store.app.progressFor(openIssue).done + '/' + openIssue.batch_size"
-                  ></span>
+                    x-text="'Batch: ' + $store.app.progressFor(openIssue).done + '/' + openIssue.batch_size"></span>
                   <template x-if="openIssue.containerized">
-                    <span
-                      class="text-xs px-2 py-1 rounded-full bg-cyan-100 text-cyan-800"
-                      >Containerized</span
-                    >
+                    <span class="text-xs px-2 py-1 rounded-full bg-cyan-100 text-cyan-800">Containerized</span>
                   </template>
                 </div>
 
@@ -457,25 +344,21 @@
                    one-click switch so they can act on the ticket without
                    reaching for the footer picker. Silent for everyone else. -->
                 <template
-                  x-if="$store.app.isFacilitator() && openIssue.team && $store.app.effectiveTeam() !== openIssue.team"
-                >
+                  x-if="$store.app.isFacilitator() && openIssue.team && $store.app.effectiveTeam() !== openIssue.team">
                   <div
-                    class="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between gap-2"
-                  >
+                    class="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between gap-2">
                     <span>
                       This ticket belongs to
-                      <strong x-text="openIssue.team"></strong>. You are
-                      currently simulating
-                      <strong
-                        x-text="$store.app.effectiveTeam() || '(no team)'"
-                      ></strong
-                      >.
+                      <strong x-text="openIssue.team"></strong>
+                      . You are currently simulating
+                      <strong x-text="$store.app.effectiveTeam() || '(no team)'"></strong>
+                      .
                     </span>
                     <button
                       @click="$store.app.setImpersonation({ team: openIssue.team })"
-                      class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap"
-                    >
-                      Simulate as <span x-text="openIssue.team"></span>
+                      class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap">
+                      Simulate as
+                      <span x-text="openIssue.team"></span>
                     </button>
                   </div>
                 </template>
@@ -483,31 +366,21 @@
                 <!-- Description URL -->
                 <template x-if="openIssue.description_url">
                   <div>
-                    <div class="text-xs text-slate-500 mb-1">
-                      Colouring page
-                    </div>
+                    <div class="text-xs text-slate-500 mb-1">Colouring page</div>
                     <a
                       :href="openIssue.description_url"
                       target="_blank"
                       rel="noopener"
                       class="text-sky-600 underline break-all text-sm"
-                      x-text="openIssue.description_url"
-                    ></a>
+                      x-text="openIssue.description_url"></a>
                   </div>
                 </template>
 
                 <!-- Feedback reason -->
                 <template x-if="openIssue.feedback_reason">
-                  <div
-                    class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-sm"
-                  >
-                    <div class="font-medium text-rose-900">
-                      Rejection reason
-                    </div>
-                    <div
-                      class="text-rose-800 mt-1"
-                      x-text="openIssue.feedback_reason"
-                    ></div>
+                  <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-sm">
+                    <div class="font-medium text-rose-900">Rejection reason</div>
+                    <div class="text-rose-800 mt-1" x-text="openIssue.feedback_reason"></div>
                   </div>
                 </template>
 
@@ -515,33 +388,24 @@
                 <div>
                   <h3 class="text-sm font-semibold mb-2">Tasks</h3>
                   <div class="space-y-2">
-                    <template
-                      x-for="task in $store.app.tasksForIssue(openIssue.id)"
-                      :key="task.id"
-                    >
+                    <template x-for="task in $store.app.tasksForIssue(openIssue.id)" :key="task.id">
                       <div
                         class="p-3 rounded-lg border border-slate-200 bg-slate-50"
-                        x-data="{ localUrl: task.attachment_url || '' }"
-                      >
-                        <div
-                          class="flex items-center justify-between gap-2 text-xs"
-                        >
+                        x-data="{ localUrl: task.attachment_url || '' }">
+                        <div class="flex items-center justify-between gap-2 text-xs">
                           <span class="font-mono text-slate-500">
-                            Task #<span x-text="task.id"></span>
+                            Task #
+                            <span x-text="task.id"></span>
                             ·
                             <span x-text="task.assignee_token"></span>
                             <template x-if="task.containerized">
-                              <span
-                                class="ml-2 px-1.5 py-0.5 bg-cyan-100 text-cyan-800 rounded"
-                                >container</span
-                              >
+                              <span class="ml-2 px-1.5 py-0.5 bg-cyan-100 text-cyan-800 rounded">container</span>
                             </template>
                           </span>
                           <span
                             class="px-2 py-0.5 rounded-full"
                             :class="task.status === 'complete' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
-                            x-text="task.status"
-                          ></span>
+                            x-text="task.status"></span>
                         </div>
                         <!-- Attachment shown if complete -->
                         <template x-if="task.attachment_url">
@@ -550,57 +414,42 @@
                             target="_blank"
                             rel="noopener"
                             class="block mt-2 text-xs text-sky-600 underline break-all"
-                            x-text="task.attachment_url"
-                          ></a>
+                            x-text="task.attachment_url"></a>
                         </template>
                         <!-- Complete task form (owner only) -->
-                        <template
-                          x-if="task.assignee_token === $store.app.user.token && task.status === 'claimed'"
-                        >
+                        <template x-if="task.assignee_token === $store.app.user.token && task.status === 'claimed'">
                           <div class="mt-2 flex flex-col sm:flex-row gap-2">
                             <input
                               x-model="localUrl"
                               type="url"
                               placeholder="Paste image/page URL"
-                              class="flex-1 px-2 py-2 text-sm border border-slate-300 rounded"
-                            />
+                              class="flex-1 px-2 py-2 text-sm border border-slate-300 rounded" />
                             <button
                               @click="$store.app.completeTask(task, localUrl)"
-                              class="px-3 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 min-h-[40px]"
-                            >
+                              class="px-3 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 min-h-[40px]">
                               Mark complete
                             </button>
                           </div>
                         </template>
                       </div>
                     </template>
-                    <template
-                      x-if="$store.app.tasksForIssue(openIssue.id).length === 0"
-                    >
-                      <div class="text-sm text-slate-500 italic">
-                        No tasks yet.
-                      </div>
+                    <template x-if="$store.app.tasksForIssue(openIssue.id).length === 0">
+                      <div class="text-sm text-slate-500 italic">No tasks yet.</div>
                     </template>
                   </div>
 
                   <!-- Add task (Developer, in_progress, on the assigned team) -->
                   <template x-if="$store.app.canAct(openIssue, 'add_task')">
-                    <div
-                      class="mt-3 p-3 rounded-lg border border-dashed border-slate-300"
-                    >
+                    <div class="mt-3 p-3 rounded-lg border border-dashed border-slate-300">
                       <template x-if="$store.app.gameState.current_sprint >= 3">
                         <label class="flex items-center gap-2 text-sm mb-2">
-                          <input
-                            type="checkbox"
-                            x-model="newTaskContainerized"
-                          />
+                          <input type="checkbox" x-model="newTaskContainerized" />
                           <span>Mark this task as Containerized</span>
                         </label>
                       </template>
                       <button
                         @click="$store.app.createTask(openIssue, { containerized: newTaskContainerized }); newTaskContainerized = false"
-                        class="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white text-sm rounded hover:bg-slate-800 min-h-[44px]"
-                      >
+                        class="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white text-sm rounded hover:bg-slate-800 min-h-[44px]">
                         + Claim a Task
                       </button>
                     </div>
@@ -609,50 +458,31 @@
 
                 <!-- Security check panel (Security role, in security column) -->
                 <template x-if="$store.app.canAct(openIssue, 'run_security')">
-                  <div
-                    class="p-3 rounded-lg bg-indigo-50 border border-indigo-200"
-                  >
-                    <h3 class="text-sm font-semibold text-indigo-900">
-                      Security Check
-                    </h3>
+                  <div class="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+                    <h3 class="text-sm font-semibold text-indigo-900">Security Check</h3>
                     <template
-                      x-if="!$store.app.securityCheckResult || $store.app.securityCheckResult.issue_id !== openIssue.id"
-                    >
+                      x-if="!$store.app.securityCheckResult || $store.app.securityCheckResult.issue_id !== openIssue.id">
                       <button
                         @click="$store.app.runSecurityCheck(openIssue)"
-                        class="mt-2 w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 min-h-[44px]"
-                      >
+                        class="mt-2 w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 min-h-[44px]">
                         Run Security Check
                       </button>
                     </template>
                     <template
-                      x-if="$store.app.securityCheckResult && $store.app.securityCheckResult.issue_id === openIssue.id"
-                    >
+                      x-if="$store.app.securityCheckResult && $store.app.securityCheckResult.issue_id === openIssue.id">
                       <div class="mt-2 text-sm">
-                        <template
-                          x-if="$store.app.securityCheckResult.has_flaw"
-                        >
-                          <div
-                            class="p-2 rounded bg-rose-100 text-rose-900 font-medium"
-                          >
+                        <template x-if="$store.app.securityCheckResult.has_flaw">
+                          <div class="p-2 rounded bg-rose-100 text-rose-900 font-medium">
                             Flaw detected
                             <span class="font-normal">
                               (source:
-                              <span
-                                x-text="$store.app.securityCheckResult.source"
-                              ></span
-                              >)
+                              <span x-text="$store.app.securityCheckResult.source"></span>
+                              )
                             </span>
                           </div>
                         </template>
-                        <template
-                          x-if="!$store.app.securityCheckResult.has_flaw"
-                        >
-                          <div
-                            class="p-2 rounded bg-emerald-100 text-emerald-900 font-medium"
-                          >
-                            Clean
-                          </div>
+                        <template x-if="!$store.app.securityCheckResult.has_flaw">
+                          <div class="p-2 rounded bg-emerald-100 text-emerald-900 font-medium">Clean</div>
                         </template>
                       </div>
                     </template>
@@ -662,41 +492,30 @@
                 <!-- Reject reason form (Security or Business) -->
                 <template x-if="showReject">
                   <div class="p-3 rounded-lg bg-rose-50 border border-rose-200">
-                    <label class="block text-sm font-medium mb-1"
-                      >Rejection reason</label
-                    >
+                    <label class="block text-sm font-medium mb-1">Rejection reason</label>
                     <input
                       x-model="rejectReason"
                       type="text"
                       placeholder="e.g. Missing colour, security flaw"
-                      class="w-full px-3 py-2 text-sm border border-slate-300 rounded"
-                    />
+                      class="w-full px-3 py-2 text-sm border border-slate-300 rounded" />
                   </div>
                 </template>
 
                 <!-- Action buttons -->
-                <div
-                  class="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-2 border-t border-slate-200"
-                >
+                <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-2 border-t border-slate-200">
                   <template x-if="$store.app.canAct(openIssue, 'claim')">
                     <button
                       @click="$store.app.claimIssue(openIssue)"
-                      class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]">
                       Claim for
-                      <span
-                        x-text="$store.app.effectiveTeam() || '(pick a team in the footer)'"
-                      ></span>
+                      <span x-text="$store.app.effectiveTeam() || '(pick a team in the footer)'"></span>
                     </button>
                   </template>
 
-                  <template
-                    x-if="$store.app.canAct(openIssue, 'send_to_testing')"
-                  >
+                  <template x-if="$store.app.canAct(openIssue, 'send_to_testing')">
                     <button
                       @click="$store.app.sendToTesting(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-sky-600 text-white text-sm font-medium rounded hover:bg-sky-700 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-sky-600 text-white text-sm font-medium rounded hover:bg-sky-700 min-h-[44px]">
                       Send to Testing
                     </button>
                   </template>
@@ -704,82 +523,60 @@
                   <template x-if="$store.app.canAct(openIssue, 'pass_testing')">
                     <button
                       @click="$store.app.passTesting(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
                       Pass Testing
                     </button>
                   </template>
                   <template x-if="$store.app.canAct(openIssue, 'fail_testing')">
                     <button
                       @click="$store.app.failTesting(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]">
                       Fail Testing
                     </button>
                   </template>
 
-                  <template
-                    x-if="$store.app.canAct(openIssue, 'pass_security')"
-                  >
+                  <template x-if="$store.app.canAct(openIssue, 'pass_security')">
                     <button
                       @click="$store.app.passSecurity(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
                       Pass Security
                     </button>
                   </template>
-                  <template
-                    x-if="$store.app.canAct(openIssue, 'reject_security')"
-                  >
+                  <template x-if="$store.app.canAct(openIssue, 'reject_security')">
                     <button
                       @click="showReject ? ($store.app.rejectSecurity(openIssue, rejectReason), openIssue = null) : (showReject = true)"
-                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]"
-                    >
-                      <span
-                        x-text="showReject ? 'Confirm Reject' : 'Reject (Security)'"
-                      ></span>
+                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]">
+                      <span x-text="showReject ? 'Confirm Reject' : 'Reject (Security)'"></span>
                     </button>
                   </template>
 
                   <template x-if="$store.app.canAct(openIssue, 'deploy')">
                     <button
                       @click="$store.app.deploy(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
                       Deploy to Production
                     </button>
                   </template>
 
-                  <template
-                    x-if="$store.app.canAct(openIssue, 'accept_production')"
-                  >
+                  <template x-if="$store.app.canAct(openIssue, 'accept_production')">
                     <button
                       @click="$store.app.acceptProduction(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
                       Accept
                     </button>
                   </template>
-                  <template
-                    x-if="$store.app.canAct(openIssue, 'reject_production')"
-                  >
+                  <template x-if="$store.app.canAct(openIssue, 'reject_production')">
                     <button
                       @click="showReject ? ($store.app.rejectProduction(openIssue, rejectReason), openIssue = null) : (showReject = true)"
-                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]"
-                    >
-                      <span
-                        x-text="showReject ? 'Confirm Reject' : 'Reject to Feedback'"
-                      ></span>
+                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]">
+                      <span x-text="showReject ? 'Confirm Reject' : 'Reject to Feedback'"></span>
                     </button>
                   </template>
 
-                  <template
-                    x-if="$store.app.canAct(openIssue, 'pickup_feedback')"
-                  >
+                  <template x-if="$store.app.canAct(openIssue, 'pickup_feedback')">
                     <button
                       @click="$store.app.pickupFeedback(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]">
                       Pick up for rework
                     </button>
                   </template>
@@ -788,8 +585,7 @@
                   <template x-if="$store.app.canAct(openIssue, 'inject_flaw')">
                     <button
                       @click="$store.app.injectFlaw(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-slate-800 text-slate-100 text-sm font-medium rounded hover:bg-slate-900 min-h-[44px]"
-                    >
+                      class="px-4 py-3 bg-slate-800 text-slate-100 text-sm font-medium rounded hover:bg-slate-900 min-h-[44px]">
                       Inject Flaw
                     </button>
                   </template>
@@ -806,80 +602,68 @@
           x-show="helpOpen"
           x-transition.opacity
           @keydown.escape.window="helpOpen = false"
-          class="fixed inset-0 bg-black/50 z-40 flex sm:items-center sm:justify-center"
-        >
+          class="fixed inset-0 bg-black/50 z-40 flex sm:items-center sm:justify-center">
           <div
             class="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl overflow-y-auto shadow-2xl p-5 sm:p-8"
-            @click.stop
-          >
+            @click.stop>
             <div class="flex items-start justify-between mb-4">
               <h2 class="text-xl font-bold">How to play</h2>
-              <button
-                @click="helpOpen = false"
-                class="text-slate-400 hover:text-slate-600 text-2xl leading-none"
-              >
+              <button @click="helpOpen = false" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
                 &times;
               </button>
             </div>
             <div class="prose prose-sm max-w-none">
               <p>
-                You have been assigned a <strong>role</strong> and (if
-                applicable) a <strong>team</strong>. The board moves Product
-                Requests from Market through to In Production. Each role owns a
-                stage.
+                You have been assigned a
+                <strong>role</strong>
+                and (if applicable) a
+                <strong>team</strong>
+                . The board moves Product Requests from Market through to In Production. Each role owns a stage.
               </p>
               <h3>Your role</h3>
               <ul>
                 <li>
-                  <strong>Business</strong>: Creates Product Requests in Market.
-                  Accepts or rejects items in Production.
+                  <strong>Business</strong>
+                  : Creates Product Requests in Market. Accepts or rejects items in Production.
                 </li>
                 <li>
-                  <strong>Developer</strong>: Claims requests in In Progress,
-                  creates Tasks for each required colouring page, completes them
-                  by pasting image URLs, then Sends to Testing.
+                  <strong>Developer</strong>
+                  : Claims requests in In Progress, creates Tasks for each required colouring page, completes them by
+                  pasting image URLs, then Sends to Testing.
                 </li>
                 <li>
-                  <strong>Tester</strong>: Passes or fails requests in Testing
-                  by visual inspection of the attached images.
+                  <strong>Tester</strong>
+                  : Passes or fails requests in Testing by visual inspection of the attached images.
                 </li>
                 <li>
-                  <strong>Security</strong>: Runs a Security Check on items in
-                  the Security column. Passes or rejects.
+                  <strong>Security</strong>
+                  : Runs a Security Check on items in the Security column. Passes or rejects.
                 </li>
                 <li>
-                  <strong>Release</strong>: Deploys items in To Deploy to In
-                  Production.
+                  <strong>Release</strong>
+                  : Deploys items in To Deploy to In Production.
                 </li>
                 <li>
-                  <strong>Observer</strong>: Read-only visibility across the
-                  whole board.
+                  <strong>Observer</strong>
+                  : Read-only visibility across the whole board.
                 </li>
               </ul>
               <h3>Colouring pages</h3>
               <p>
                 Use
-                <a
-                  href="https://www.online-coloring.com"
-                  target="_blank"
-                  rel="noopener"
-                  >online-coloring.com</a
-                >
-                to colour the pages. When you finish a page, save or screenshot
-                it, upload to any image host (imgur, postimg, etc.), and paste
-                the URL into your Task.
+                <a href="https://www.online-coloring.com" target="_blank" rel="noopener">online-coloring.com</a>
+                to colour the pages. When you finish a page, save or screenshot it, upload to any image host (imgur,
+                postimg, etc.), and paste the URL into your Task.
               </p>
               <h3>Security flaws</h3>
               <p>
-                Some Product Requests have flaws. Security must catch them
-                before they reach Production. A flaw can come from the request
-                itself or be injected by other means.
+                Some Product Requests have flaws. Security must catch them before they reach Production. A flaw can come
+                from the request itself or be injected by other means.
               </p>
               <h3>Sprints</h3>
               <p>
-                The facilitator advances the session through Sprint 1
-                (Waterfall), Sprint 2 (Agile with security failures), and Sprint
-                3 (CI/CD with Containers). Behaviour changes in each sprint.
+                The facilitator advances the session through Sprint 1 (Waterfall), Sprint 2 (Agile with security
+                failures), and Sprint 3 (CI/CD with Containers). Behaviour changes in each sprint.
               </p>
               <hr />
               <p>
@@ -887,25 +671,21 @@
                   href="guide.html?doc=PARTICIPANT_GUIDE.md"
                   target="_blank"
                   rel="noopener"
-                  class="text-sky-600 underline font-medium"
-                >
+                  class="text-sky-600 underline font-medium">
                   Open the full participant guide →
                 </a>
                 <span class="text-xs text-slate-500 block mt-1">
-                  Full version in a new tab, with table of contents and links to
-                  the other project docs.
+                  Full version in a new tab, with table of contents and links to the other project docs.
                 </span>
               </p>
               <hr />
               <p class="text-xs text-slate-500">
-                Adapted from Pylayeva, D. (2024). <em>DevSecOps Adventures</em>.
-                Based on the
-                <a
-                  href="https://github.com/johnanvik/devops-colouring"
-                  target="_blank"
-                  rel="noopener"
-                  >johnanvik/devops-colouring</a
-                >
+                Adapted from Pylayeva, D. (2024).
+                <em>DevSecOps Adventures</em>
+                . Based on the
+                <a href="https://github.com/johnanvik/devops-colouring" target="_blank" rel="noopener">
+                  johnanvik/devops-colouring
+                </a>
                 template.
               </p>
             </div>
@@ -918,8 +698,7 @@
           x-transition.opacity
           :class="$store.app.isFacilitator() ? 'bottom-20' : 'bottom-4'"
           class="fixed left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
-          x-text="$store.app.toastMsg"
-        ></div>
+          x-text="$store.app.toastMsg"></div>
 
         <!-- ============================================================
            FACILITATOR IMPERSONATION BAR (fixed to the bottom edge)
@@ -929,27 +708,17 @@
            out.
            ============================================================ -->
         <template x-if="$store.app.isFacilitator()">
-          <div
-            class="fixed inset-x-0 bottom-0 z-40 bg-indigo-50/95 backdrop-blur border-t border-indigo-200 shadow-lg"
-          >
-            <div
-              class="px-3 sm:px-6 py-2 flex items-center gap-2 text-xs text-indigo-900 flex-wrap"
-            >
-              <span
-                class="font-medium uppercase tracking-wide text-[10px] text-indigo-700"
-                >Facilitator</span
-              >
+          <div class="fixed inset-x-0 bottom-0 z-40 bg-indigo-50/95 backdrop-blur border-t border-indigo-200 shadow-lg">
+            <div class="px-3 sm:px-6 py-2 flex items-center gap-2 text-xs text-indigo-900 flex-wrap">
+              <span class="font-medium uppercase tracking-wide text-[10px] text-indigo-700">Facilitator</span>
               <button>
-                <a href="admin.html" class="text-sky-600 underline"
-                  >Admin View</a
-                >
+                <a href="admin.html" class="text-sky-600 underline">Admin View</a>
               </button>
               <span class="hidden sm:inline text-indigo-700/70">simulate:</span>
               <select
                 x-model="$store.app.impersonation.role"
                 @change="$store.app.setImpersonation({ role: $event.target.value })"
-                class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]"
-              >
+                class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]">
                 <option value="">Observe only</option>
                 <option value="business">as Business</option>
                 <option value="developer">as Developer</option>
@@ -963,8 +732,7 @@
                 x-model="$store.app.impersonation.team"
                 @change="$store.app.setImpersonation({ team: $event.target.value })"
                 x-show="!!$store.app.impersonation.role"
-                class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]"
-              >
+                class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]">
                 <option value="">(no team)</option>
                 <template x-for="t in $store.app.allTeams()" :key="t">
                   <option :value="t" x-text="t"></option>
@@ -973,27 +741,21 @@
               <template x-if="$store.app.impersonation.role">
                 <button
                   @click="$store.app.setImpersonation({ role: '', team: '' })"
-                  class="ml-auto px-2 py-1 text-indigo-700 hover:text-indigo-900 underline"
-                >
+                  class="ml-auto px-2 py-1 text-indigo-700 hover:text-indigo-900 underline">
                   Stop simulating
                 </button>
                 &nbsp;
                 <button>
-                  <a href="admin.html" class="text-sky-600 underline"
-                    >Admin view</a
-                  >
+                  <a href="admin.html" class="text-sky-600 underline">Admin view</a>
                 </button>
               </template>
               <template x-if="!$store.app.impersonation.role">
                 <span class="ml-auto text-indigo-700/60 hidden sm:inline">
-                  Pick a role to act as a participant. Nothing above this bar
-                  gives you away.
+                  Pick a role to act as a participant. Nothing above this bar gives you away.
                 </span>
 
                 <button>
-                  <a href="admin.html" class="text-sky-600 underline"
-                    >Admin view</a
-                  >
+                  <a href="admin.html" class="text-sky-600 underline">Admin view</a>
                 </button>
               </template>
             </div>

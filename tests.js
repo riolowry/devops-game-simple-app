@@ -21,11 +21,7 @@
   // ==========================================================
   // Config guard. Same check the app uses.
   // ==========================================================
-  if (
-    !window.CONFIG ||
-    !window.CONFIG.SUPABASE_URL ||
-    window.CONFIG.SUPABASE_URL.includes("YOUR-PROJECT-REF")
-  ) {
+  if (!window.CONFIG || !window.CONFIG.SUPABASE_URL || window.CONFIG.SUPABASE_URL.includes("YOUR-PROJECT-REF")) {
     document.addEventListener("DOMContentLoaded", () => {
       document.body.innerHTML =
         '<div style="font-family:system-ui;max-width:600px;margin:4rem auto;padding:1rem;">' +
@@ -46,10 +42,7 @@
 
   // Own Supabase client. We do not reuse the app's client because
   // tests.html runs standalone (no app.js loaded).
-  const supabase = window.supabase.createClient(
-    window.CONFIG.SUPABASE_URL,
-    window.CONFIG.SUPABASE_ANON_KEY,
-  );
+  const supabase = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
 
   // ==========================================================
   // Helpers
@@ -91,27 +84,14 @@
     async createUser(role, team, namePart) {
       const displayName = TEST_USER_PREFIX + (namePart || role);
       const token = randomToken();
-      const { data, error } = await supabase
+      const {data, error} = await supabase
         .from("users")
-        .insert({
-          token,
-          display_name: displayName,
-          role,
-          team: team || null,
-        })
+        .insert({token, display_name: displayName, role, team: team || null})
         .select()
         .single();
       if (error) throw new Error("createUser: " + error.message);
       this.users.push(data);
-      this.log(
-        "  + user " +
-          displayName +
-          " [" +
-          role +
-          (team ? "/" + team : "") +
-          "] token " +
-          token,
-      );
+      this.log("  + user " + displayName + " [" + role + (team ? "/" + team : "") + "] token " + token);
       return data;
     }
 
@@ -128,11 +108,7 @@
         hacked_flag: !!opts.hacked_flag,
         containerized: !!opts.containerized,
       };
-      const { data, error } = await supabase
-        .from("issues")
-        .insert(payload)
-        .select()
-        .single();
+      const {data, error} = await supabase.from("issues").insert(payload).select().single();
       if (error) throw new Error("createIssue: " + error.message);
       this.issues.push(data);
       this.log("  + issue #" + data.id + ' "' + title + '"');
@@ -140,27 +116,20 @@
     }
 
     async updateIssue(id, patch) {
-      const { error } = await supabase
-        .from("issues")
-        .update(patch)
-        .eq("id", id);
+      const {error} = await supabase.from("issues").update(patch).eq("id", id);
       if (error) throw new Error("updateIssue: " + error.message);
       this.log("  ~ issue #" + id + " " + JSON.stringify(patch));
     }
 
     async fetchIssue(id) {
-      const { data, error } = await supabase
-        .from("issues")
-        .select("*")
-        .eq("id", id)
-        .single();
+      const {data, error} = await supabase.from("issues").select("*").eq("id", id).single();
       if (error) throw new Error("fetchIssue: " + error.message);
       return data;
     }
 
     async createTask(issue, user, opts) {
       opts = opts || {};
-      const { data, error } = await supabase
+      const {data, error} = await supabase
         .from("tasks")
         .insert({
           parent_issue_id: issue.id,
@@ -176,25 +145,18 @@
     }
 
     async completeTask(task, url) {
-      const { error } = await supabase
+      const {error} = await supabase
         .from("tasks")
-        .update({
-          attachment_url: url || "https://example.com/test.png",
-          status: "complete",
-        })
+        .update({attachment_url: url || "https://example.com/test.png", status: "complete"})
         .eq("id", task.id);
       if (error) throw new Error("completeTask: " + error.message);
       this.log("  ✓ task #" + task.id + " complete");
     }
 
     async logHackerAttempt(hacker, issue, sprint, caught) {
-      const payload = {
-        hacker_token: hacker ? hacker.token : null,
-        target_issue_id: issue.id,
-        sprint: sprint,
-      };
+      const payload = {hacker_token: hacker ? hacker.token : null, target_issue_id: issue.id, sprint: sprint};
       if (caught !== undefined) payload.caught_by_security = caught;
-      const { error } = await supabase.from("hacker_log").insert(payload);
+      const {error} = await supabase.from("hacker_log").insert(payload);
       if (error) throw new Error("logHackerAttempt: " + error.message);
     }
 
@@ -204,20 +166,13 @@
     // that will mutate game_state, then the runner's finally block will
     // auto-restore via restoreGameState() even if the test throws.
     async fetchGameState() {
-      const { data, error } = await supabase
-        .from("game_state")
-        .select("*")
-        .eq("id", 1)
-        .single();
+      const {data, error} = await supabase.from("game_state").select("*").eq("id", 1).single();
       if (error) throw new Error("fetchGameState: " + error.message);
       return data;
     }
 
     async updateGameState(patch) {
-      const { error } = await supabase
-        .from("game_state")
-        .update(patch)
-        .eq("id", 1);
+      const {error} = await supabase.from("game_state").update(patch).eq("id", 1);
       if (error) throw new Error("updateGameState: " + error.message);
       this.log("  ~ game_state " + JSON.stringify(patch));
     }
@@ -248,10 +203,7 @@
     async restoreGameState() {
       if (!this._gsSnapshot) return;
       const snap = this._gsSnapshot;
-      const { error } = await supabase
-        .from("game_state")
-        .update(snap)
-        .eq("id", 1);
+      const {error} = await supabase.from("game_state").update(snap).eq("id", 1);
       if (error) {
         this.log("  \u2717 restore game_state FAILED: " + error.message);
         throw new Error("restoreGameState: " + error.message);
@@ -271,14 +223,11 @@
       id: "health",
       name: "Health: all 5 tables reachable",
       category: "setup",
-      description:
-        "Confirms schema.sql has been run and the anon key has read access.",
+      description: "Confirms schema.sql has been run and the anon key has read access.",
       async run(ctx) {
         const tables = ["users", "issues", "tasks", "game_state", "hacker_log"];
         for (const t of tables) {
-          const { error, count } = await supabase
-            .from(t)
-            .select("*", { count: "exact", head: true });
+          const {error, count} = await supabase.from(t).select("*", {count: "exact", head: true});
           if (error) throw new Error(t + ": " + error.message);
           ctx.log("  ✓ " + t + ": " + count + " rows");
         }
@@ -289,18 +238,9 @@
       name: "Setup: game_state singleton row exists",
       category: "setup",
       async run(ctx) {
-        const { data, error } = await supabase
-          .from("game_state")
-          .select("*")
-          .eq("id", 1)
-          .single();
+        const {data, error} = await supabase.from("game_state").select("*").eq("id", 1).single();
         if (error) throw new Error(error.message);
-        ctx.log(
-          "  sprint=" +
-            data.current_sprint +
-            " modulus=" +
-            data.security_modulus,
-        );
+        ctx.log("  sprint=" + data.current_sprint + " modulus=" + data.security_modulus);
         assert(data.id === 1, "game_state.id must be 1");
       },
     },
@@ -309,17 +249,10 @@
       name: "Setup: default facilitator token FACIL1 exists",
       category: "setup",
       async run(ctx) {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("token", "FACIL1")
-          .maybeSingle();
+        const {data, error} = await supabase.from("users").select("*").eq("token", "FACIL1").maybeSingle();
         if (error) throw new Error(error.message);
         assert(data, "FACIL1 facilitator token missing. Re-run schema.sql.");
-        assert(
-          data.role === "facilitator",
-          "FACIL1 should have role=facilitator",
-        );
+        assert(data.role === "facilitator", "FACIL1 should have role=facilitator");
         ctx.log("  ✓ FACIL1 present");
       },
     },
@@ -333,8 +266,7 @@
       id: "fe-app-loaded",
       name: "Frontend: app.js loaded and App.logic exposed",
       category: "frontend",
-      description:
-        "Sanity check that app.js was loaded by tests.html and exposed its pure logic API.",
+      description: "Sanity check that app.js was loaded by tests.html and exposed its pure logic API.",
       async run(ctx) {
         assert(window.App, "window.App missing. app.js not loaded?");
         assert(window.App.logic, "window.App.logic missing");
@@ -348,20 +280,11 @@
           "isHacker",
         ];
         for (const f of fns) {
-          assert(
-            typeof window.App.logic[f] === "function",
-            "App.logic." + f + " is not a function",
-          );
+          assert(typeof window.App.logic[f] === "function", "App.logic." + f + " is not a function");
         }
         ctx.log("  ✓ " + fns.length + " logic functions exposed");
-        assert(
-          Array.isArray(window.App.HACKER_CANDIDATE_ROLES),
-          "HACKER_CANDIDATE_ROLES not exported",
-        );
-        assert(
-          Array.isArray(window.App.HACKER_INJECTABLE_STATUSES),
-          "HACKER_INJECTABLE_STATUSES not exported",
-        );
+        assert(Array.isArray(window.App.HACKER_CANDIDATE_ROLES), "HACKER_CANDIDATE_ROLES not exported");
+        assert(Array.isArray(window.App.HACKER_INJECTABLE_STATUSES), "HACKER_INJECTABLE_STATUSES not exported");
       },
     },
     {
@@ -372,14 +295,8 @@
         const labels = window.App.ROLE_LABELS;
         assert(labels.observer === "Observer", "observer label missing");
         assert(!("admin" in labels), "admin label should be removed");
-        assert(
-          window.App.VALID_ROLES.indexOf("observer") !== -1,
-          "observer must be in VALID_ROLES",
-        );
-        assert(
-          window.App.VALID_ROLES.indexOf("admin") === -1,
-          "admin should not be in VALID_ROLES",
-        );
+        assert(window.App.VALID_ROLES.indexOf("observer") !== -1, "observer must be in VALID_ROLES");
+        assert(window.App.VALID_ROLES.indexOf("admin") === -1, "admin should not be in VALID_ROLES");
         ctx.log("  ✓ admin renamed to observer");
       },
     },
@@ -388,17 +305,17 @@
       name: "Frontend: progressFor and batchGateOpen",
       category: "frontend",
       async run(ctx) {
-        const { progressFor, batchGateOpen } = window.App.logic;
-        const issue = { id: 10, batch_size: 3 };
+        const {progressFor, batchGateOpen} = window.App.logic;
+        const issue = {id: 10, batch_size: 3};
         const tasksNone = [];
         const tasksPartial = [
-          { parent_issue_id: 10, status: "complete" },
-          { parent_issue_id: 10, status: "claimed" },
+          {parent_issue_id: 10, status: "complete"},
+          {parent_issue_id: 10, status: "claimed"},
         ];
         const tasksFull = [
-          { parent_issue_id: 10, status: "complete" },
-          { parent_issue_id: 10, status: "complete" },
-          { parent_issue_id: 10, status: "complete" },
+          {parent_issue_id: 10, status: "complete"},
+          {parent_issue_id: 10, status: "complete"},
+          {parent_issue_id: 10, status: "complete"},
         ];
         assert(progressFor(issue, tasksNone).done === 0, "no done");
         assert(progressFor(issue, tasksPartial).done === 1, "1 of 3");
@@ -414,19 +331,10 @@
       category: "frontend",
       async run(ctx) {
         const d = window.App.logic.detectFlaw;
-        assert(
-          d({ id: 7 }, 7).source === "deterministic",
-          "id=7 mod 7 is deterministic",
-        );
-        assert(!d({ id: 5 }, 7).has_flaw, "id=5 mod 7 is clean");
-        assert(
-          d({ id: 5, hacked_flag: true }, 7).source === "injected",
-          "hacked overrides clean",
-        );
-        assert(
-          d({ id: 7, hacked_flag: true }, 7).source === "injected",
-          "injected wins over deterministic",
-        );
+        assert(d({id: 7}, 7).source === "deterministic", "id=7 mod 7 is deterministic");
+        assert(!d({id: 5}, 7).has_flaw, "id=5 mod 7 is clean");
+        assert(d({id: 5, hacked_flag: true}, 7).source === "injected", "hacked overrides clean");
+        assert(d({id: 7, hacked_flag: true}, 7).source === "injected", "injected wins over deterministic");
         ctx.log("  ✓ flaw detection matches Security's runtime behavior");
       },
     },
@@ -435,33 +343,27 @@
       name: "Frontend: effective role and team (facilitator impersonation)",
       category: "frontend",
       async run(ctx) {
-        const { effectiveRole, effectiveTeam, isHacker } = window.App.logic;
-        const facil = { role: "facilitator", team: null };
-        const dev = { role: "developer", team: "Team 1" };
+        const {effectiveRole, effectiveTeam, isHacker} = window.App.logic;
+        const facil = {role: "facilitator", team: null};
+        const dev = {role: "developer", team: "Team 1"};
         assert(effectiveRole(dev, null) === "developer", "dev stays dev");
         assert(effectiveTeam(dev, null) === "Team 1", "dev team intact");
         // Facilitator with no impersonation observes (role undefined)
         assert(
-          effectiveRole(facil, { role: "", team: "" }) === "facilitator",
+          effectiveRole(facil, {role: "", team: ""}) === "facilitator",
           "facil with blank impersonation stays facilitator",
         );
         // Facilitator impersonating tester
-        assert(
-          effectiveRole(facil, { role: "tester", team: "" }) === "tester",
-          "facil → tester",
-        );
+        assert(effectiveRole(facil, {role: "tester", team: ""}) === "tester", "facil → tester");
         // Facilitator impersonating hacker should see developer in the UI but isHacker is true
         assert(
-          effectiveRole(facil, { role: "hacker", team: "" }) === "developer",
+          effectiveRole(facil, {role: "hacker", team: ""}) === "developer",
           "hacker maps to developer in visible role",
         );
-        assert(
-          isHacker(facil, { role: "hacker", team: "" }) === true,
-          "isHacker true for hacker impersonation",
-        );
+        assert(isHacker(facil, {role: "hacker", team: ""}) === true, "isHacker true for hacker impersonation");
         // A regular developer cannot impersonate (ignored)
         assert(
-          effectiveRole(dev, { role: "security", team: "" }) === "developer",
+          effectiveRole(dev, {role: "security", team: ""}) === "developer",
           "non-facilitator ignores impersonation",
         );
         ctx.log("  ✓ impersonation only applies to facilitators");
@@ -473,102 +375,56 @@
       category: "frontend",
       async run(ctx) {
         const canAct = window.App.logic.canAct;
-        const dev1 = { role: "developer", team: "Team 1" };
-        const dev2 = { role: "developer", team: "Team 2" };
-        const tester = { role: "tester", team: null };
-        const security = { role: "security", team: null };
-        const biz = { role: "business", team: null };
-        const release = { role: "release", team: null };
-        const observer = { role: "observer", team: null };
-        const gs = { current_sprint: 1 };
-        const unclaimed = {
-          id: 1,
-          status: "market",
-          team: null,
-          batch_size: 1,
-        };
-        const t1InProg = {
-          id: 2,
-          status: "in_progress",
-          team: "Team 1",
-          batch_size: 2,
-        };
-        const t1Testing = { id: 3, status: "testing", team: "Team 1" };
-        const t1Security = { id: 4, status: "security", team: "Team 1" };
-        const t1ToDeploy = { id: 5, status: "to_deploy", team: "Team 1" };
-        const t1Prod = { id: 6, status: "in_production", team: "Team 1" };
+        const dev1 = {role: "developer", team: "Team 1"};
+        const dev2 = {role: "developer", team: "Team 2"};
+        const tester = {role: "tester", team: null};
+        const security = {role: "security", team: null};
+        const biz = {role: "business", team: null};
+        const release = {role: "release", team: null};
+        const observer = {role: "observer", team: null};
+        const gs = {current_sprint: 1};
+        const unclaimed = {id: 1, status: "market", team: null, batch_size: 1};
+        const t1InProg = {id: 2, status: "in_progress", team: "Team 1", batch_size: 2};
+        const t1Testing = {id: 3, status: "testing", team: "Team 1"};
+        const t1Security = {id: 4, status: "security", team: "Team 1"};
+        const t1ToDeploy = {id: 5, status: "to_deploy", team: "Team 1"};
+        const t1Prod = {id: 6, status: "in_production", team: "Team 1"};
 
         // Claim: only developers, only on market, only if unclaimed
-        assert(
-          canAct(dev1, null, unclaimed, "claim", { gameState: gs }),
-          "dev can claim",
-        );
-        assert(
-          !canAct(tester, null, unclaimed, "claim", { gameState: gs }),
-          "tester cannot claim",
-        );
-        assert(
-          !canAct(dev1, null, t1InProg, "claim", { gameState: gs }),
-          "cannot claim in_progress",
-        );
+        assert(canAct(dev1, null, unclaimed, "claim", {gameState: gs}), "dev can claim");
+        assert(!canAct(tester, null, unclaimed, "claim", {gameState: gs}), "tester cannot claim");
+        assert(!canAct(dev1, null, t1InProg, "claim", {gameState: gs}), "cannot claim in_progress");
 
         // Team scoping on in_progress
         assert(
-          canAct(dev1, null, t1InProg, "add_task", {
-            gameState: gs,
-            tasks: [],
-          }),
+          canAct(dev1, null, t1InProg, "add_task", {gameState: gs, tasks: []}),
           "dev1 can add task to Team 1 issue",
         );
         assert(
-          !canAct(dev2, null, t1InProg, "add_task", {
-            gameState: gs,
-            tasks: [],
-          }),
+          !canAct(dev2, null, t1InProg, "add_task", {gameState: gs, tasks: []}),
           "dev2 cannot add task to Team 1 issue",
         );
 
         // Send to testing: needs batch gate
         const fullTasks = [
-          { parent_issue_id: 2, status: "complete" },
-          { parent_issue_id: 2, status: "complete" },
+          {parent_issue_id: 2, status: "complete"},
+          {parent_issue_id: 2, status: "complete"},
         ];
         assert(
-          canAct(dev1, null, t1InProg, "send_to_testing", {
-            gameState: gs,
-            tasks: fullTasks,
-          }),
+          canAct(dev1, null, t1InProg, "send_to_testing", {gameState: gs, tasks: fullTasks}),
           "dev1 can send when gate open",
         );
         assert(
-          !canAct(dev1, null, t1InProg, "send_to_testing", {
-            gameState: gs,
-            tasks: [],
-          }),
+          !canAct(dev1, null, t1InProg, "send_to_testing", {gameState: gs, tasks: []}),
           "dev1 blocked when gate closed",
         );
 
         // Tester, Security, Release scope to their columns
-        assert(
-          canAct(tester, null, t1Testing, "pass_testing", { gameState: gs }),
-          "tester in testing",
-        );
-        assert(
-          !canAct(tester, null, t1Security, "pass_testing", { gameState: gs }),
-          "tester not in security",
-        );
-        assert(
-          canAct(security, null, t1Security, "run_security", { gameState: gs }),
-          "security in security",
-        );
-        assert(
-          canAct(release, null, t1ToDeploy, "deploy", { gameState: gs }),
-          "release in to_deploy",
-        );
-        assert(
-          canAct(biz, null, t1Prod, "accept_production", { gameState: gs }),
-          "business in production",
-        );
+        assert(canAct(tester, null, t1Testing, "pass_testing", {gameState: gs}), "tester in testing");
+        assert(!canAct(tester, null, t1Security, "pass_testing", {gameState: gs}), "tester not in security");
+        assert(canAct(security, null, t1Security, "run_security", {gameState: gs}), "security in security");
+        assert(canAct(release, null, t1ToDeploy, "deploy", {gameState: gs}), "release in to_deploy");
+        assert(canAct(biz, null, t1Prod, "accept_production", {gameState: gs}), "business in production");
 
         // Observer can do nothing
         const allActions = [
@@ -582,10 +438,7 @@
           "inject_flaw",
         ];
         for (const a of allActions) {
-          assert(
-            !canAct(observer, null, t1InProg, a, { gameState: gs, tasks: [] }),
-            "observer blocked on " + a,
-          );
+          assert(!canAct(observer, null, t1InProg, a, {gameState: gs, tasks: []}), "observer blocked on " + a);
         }
         ctx.log("  ✓ role/column/team matrix enforced");
       },
@@ -598,83 +451,58 @@
         "Per professor feedback: hacker injects regardless of team, across in_progress/testing/security/to_deploy. Blocked by containerization and by sprint 1.",
       async run(ctx) {
         const canAct = window.App.logic.canAct;
-        const hacker = { role: "hacker", team: "Team 1" };
-        const facilAsHacker = { role: "facilitator", team: null };
-        const imp = { role: "hacker", team: "" };
-        const s1 = { current_sprint: 1 };
-        const s2 = { current_sprint: 2 };
+        const hacker = {role: "hacker", team: "Team 1"};
+        const facilAsHacker = {role: "facilitator", team: null};
+        const imp = {role: "hacker", team: ""};
+        const s1 = {current_sprint: 1};
+        const s2 = {current_sprint: 2};
 
         const cases = [
           // Every active-pipeline status on another team's item, sprint 2+
-          { id: 10, status: "in_progress", team: "Team 2" },
-          { id: 11, status: "testing", team: "Team 2" },
-          { id: 12, status: "security", team: "Team 2" },
-          { id: 13, status: "to_deploy", team: "Team 2" },
+          {id: 10, status: "in_progress", team: "Team 2"},
+          {id: 11, status: "testing", team: "Team 2"},
+          {id: 12, status: "security", team: "Team 2"},
+          {id: 13, status: "to_deploy", team: "Team 2"},
         ];
         for (const c of cases) {
           assert(
-            canAct(hacker, null, c, "inject_flaw", { gameState: s2 }),
+            canAct(hacker, null, c, "inject_flaw", {gameState: s2}),
             "hacker injects on " + c.status + " (other team)",
           );
         }
 
         // Sprint 1: hacker disabled
-        assert(
-          !canAct(hacker, null, cases[0], "inject_flaw", { gameState: s1 }),
-          "sprint 1 blocks hacker",
-        );
+        assert(!canAct(hacker, null, cases[0], "inject_flaw", {gameState: s1}), "sprint 1 blocks hacker");
 
         // Excluded statuses
         const blocked = [
-          { id: 20, status: "market" },
-          { id: 21, status: "in_production", team: "Team 1" },
-          { id: 22, status: "feedback", team: "Team 1" },
+          {id: 20, status: "market"},
+          {id: 21, status: "in_production", team: "Team 1"},
+          {id: 22, status: "feedback", team: "Team 1"},
         ];
         for (const c of blocked) {
-          assert(
-            !canAct(hacker, null, c, "inject_flaw", { gameState: s2 }),
-            "inject blocked on " + c.status,
-          );
+          assert(!canAct(hacker, null, c, "inject_flaw", {gameState: s2}), "inject blocked on " + c.status);
         }
 
         // Containerized blocks
         assert(
-          !canAct(
-            hacker,
-            null,
-            {
-              id: 30,
-              status: "in_progress",
-              team: "Team 1",
-              containerized: true,
-            },
-            "inject_flaw",
-            { gameState: s2 },
-          ),
+          !canAct(hacker, null, {id: 30, status: "in_progress", team: "Team 1", containerized: true}, "inject_flaw", {
+            gameState: s2,
+          }),
           "containerized blocks injection",
         );
 
         // Already-hacked blocks re-inject
         assert(
-          !canAct(
-            hacker,
-            null,
-            { id: 31, status: "testing", team: "Team 1", hacked_flag: true },
-            "inject_flaw",
-            { gameState: s2 },
-          ),
+          !canAct(hacker, null, {id: 31, status: "testing", team: "Team 1", hacked_flag: true}, "inject_flaw", {
+            gameState: s2,
+          }),
           "re-inject blocked while hacked_flag is true",
         );
 
         // Facilitator impersonating hacker also can inject
         assert(
-          canAct(
-            facilAsHacker,
-            imp,
-            { id: 32, status: "security", team: "Team 2" },
-            "inject_flaw",
-            { gameState: s2 },
-          ),
+          canAct(facilAsHacker, imp, {id: 32, status: "security", team: "Team 2"}, "inject_flaw", {gameState: s2}),
           "facilitator-as-hacker can inject for testing",
         );
 
@@ -689,42 +517,27 @@
         "Regression test for the bug where createIssue checked this.user.role directly, rejecting a facilitator simulating as Business.",
       async run(ctx) {
         const canAct = window.App.logic.canAct;
-        const biz = { role: "business", team: null };
-        const dev = { role: "developer", team: "Team 1" };
-        const facil = { role: "facilitator", team: null };
-        const gs = { current_sprint: 1 };
+        const biz = {role: "business", team: null};
+        const dev = {role: "developer", team: "Team 1"};
+        const facil = {role: "facilitator", team: null};
+        const gs = {current_sprint: 1};
 
-        assert(
-          canAct(biz, null, null, "create_issue", { gameState: gs }),
-          "business can create",
-        );
-        assert(
-          !canAct(dev, null, null, "create_issue", { gameState: gs }),
-          "developer cannot create",
-        );
+        assert(canAct(biz, null, null, "create_issue", {gameState: gs}), "business can create");
+        assert(!canAct(dev, null, null, "create_issue", {gameState: gs}), "developer cannot create");
         // The bug: without impersonation, facilitator is NOT business.
+        assert(!canAct(facil, null, null, "create_issue", {gameState: gs}), "facilitator observing cannot create");
         assert(
-          !canAct(facil, null, null, "create_issue", { gameState: gs }),
-          "facilitator observing cannot create",
-        );
-        assert(
-          !canAct(facil, { role: "", team: "" }, null, "create_issue", {
-            gameState: gs,
-          }),
+          !canAct(facil, {role: "", team: ""}, null, "create_issue", {gameState: gs}),
           "facilitator with blank impersonation cannot create",
         );
         // The fix: facilitator simulating as business CAN create.
         assert(
-          canAct(facil, { role: "business", team: "" }, null, "create_issue", {
-            gameState: gs,
-          }),
+          canAct(facil, {role: "business", team: ""}, null, "create_issue", {gameState: gs}),
           "facilitator simulating as business CAN create (the fix)",
         );
         // A non-facilitator cannot escalate via impersonation.
         assert(
-          !canAct(dev, { role: "business", team: "" }, null, "create_issue", {
-            gameState: gs,
-          }),
+          !canAct(dev, {role: "business", team: ""}, null, "create_issue", {gameState: gs}),
           "developer cannot escalate to business via impersonation",
         );
         ctx.log("  ✓ create_issue goes through canAct; simulation honored");
@@ -739,40 +552,24 @@
       async run(ctx) {
         const canAct = window.App.logic.canAct;
         const effectiveTeam = window.App.logic.effectiveTeam;
-        const facil = { role: "facilitator", team: null };
-        const imp = { role: "developer", team: "Team 2" };
-        const gs = { current_sprint: 1 };
-        const t2Issue = {
-          id: 100,
-          status: "in_progress",
-          team: "Team 2",
-          batch_size: 1,
-        };
-        const t1Issue = {
-          id: 101,
-          status: "in_progress",
-          team: "Team 1",
-          batch_size: 1,
-        };
+        const facil = {role: "facilitator", team: null};
+        const imp = {role: "developer", team: "Team 2"};
+        const gs = {current_sprint: 1};
+        const t2Issue = {id: 100, status: "in_progress", team: "Team 2", batch_size: 1};
+        const t1Issue = {id: 101, status: "in_progress", team: "Team 1", batch_size: 1};
 
         assert(effectiveTeam(facil, imp) === "Team 2", "effective team Team 2");
         assert(
-          canAct(facil, imp, t2Issue, "add_task", { gameState: gs, tasks: [] }),
+          canAct(facil, imp, t2Issue, "add_task", {gameState: gs, tasks: []}),
           "facil-as-dev-T2 can add task to T2 issue",
         );
         assert(
-          !canAct(facil, imp, t1Issue, "add_task", {
-            gameState: gs,
-            tasks: [],
-          }),
+          !canAct(facil, imp, t1Issue, "add_task", {gameState: gs, tasks: []}),
           "facil-as-dev-T2 cannot add task to T1 issue",
         );
-        const complete = [{ parent_issue_id: 100, status: "complete" }];
+        const complete = [{parent_issue_id: 100, status: "complete"}];
         assert(
-          canAct(facil, imp, t2Issue, "send_to_testing", {
-            gameState: gs,
-            tasks: complete,
-          }),
+          canAct(facil, imp, t2Issue, "send_to_testing", {gameState: gs, tasks: complete}),
           "facil-as-dev-T2 can send T2 issue with batch gate open",
         );
         ctx.log("  ✓ team-scoped actions honor impersonation.team");
@@ -795,10 +592,7 @@
       category: "unit",
       async run(ctx) {
         const biz = await ctx.createUser("business", null, "biz");
-        const issue = await ctx.createIssue(biz, "create-only", {
-          price: 50,
-          batch_size: 2,
-        });
+        const issue = await ctx.createIssue(biz, "create-only", {price: 50, batch_size: 2});
         assert(issue.status === "market", "starts in market");
         assert(issue.batch_size === 2, "batch_size persisted");
       },
@@ -812,10 +606,7 @@
         await ctx.createUser("developer", "TEST-ALPHA", "dev");
         const issue = await ctx.createIssue(biz, "claimable");
         await ctx.pause();
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-ALPHA",
-          status: "in_progress",
-        });
+        await ctx.updateIssue(issue.id, {team: "TEST-ALPHA", status: "in_progress"});
         const fresh = await ctx.fetchIssue(issue.id);
         assert(fresh.status === "in_progress", "status transitions");
         assert(fresh.team === "TEST-ALPHA", "team set");
@@ -830,20 +621,15 @@
       async run(ctx) {
         const biz = await ctx.createUser("business", null, "biz");
         const dev = await ctx.createUser("developer", "TEST-ALPHA", "dev");
-        const issue = await ctx.createIssue(biz, "gate test", {
-          batch_size: 2,
-        });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-ALPHA",
-          status: "in_progress",
-        });
+        const issue = await ctx.createIssue(biz, "gate test", {batch_size: 2});
+        await ctx.updateIssue(issue.id, {team: "TEST-ALPHA", status: "in_progress"});
         await ctx.pause();
         const t1 = await ctx.createTask(issue, dev);
         await ctx.completeTask(t1);
         await ctx.pause();
 
         // Count completed tasks so far. Should be 1 of 2.
-        const { data: done1 } = await supabase
+        const {data: done1} = await supabase
           .from("tasks")
           .select("id")
           .eq("parent_issue_id", issue.id)
@@ -853,7 +639,7 @@
 
         const t2 = await ctx.createTask(issue, dev);
         await ctx.completeTask(t2);
-        const { data: done2 } = await supabase
+        const {data: done2} = await supabase
           .from("tasks")
           .select("id")
           .eq("parent_issue_id", issue.id)
@@ -867,11 +653,7 @@
       name: "Unit: deterministic security rule (id % modulus == 0)",
       category: "unit",
       async run(ctx) {
-        const { data: gs } = await supabase
-          .from("game_state")
-          .select("security_modulus")
-          .eq("id", 1)
-          .single();
+        const {data: gs} = await supabase.from("game_state").select("security_modulus").eq("id", 1).single();
         const modulus = gs.security_modulus;
         ctx.log("  current modulus: " + modulus);
         const biz = await ctx.createUser("business", null, "biz");
@@ -880,14 +662,7 @@
           const issue = await ctx.createIssue(biz, "mod-check-" + i);
           const hasFlaw = issue.id % modulus === 0;
           ctx.log(
-            "  #" +
-              issue.id +
-              " % " +
-              modulus +
-              " = " +
-              (issue.id % modulus) +
-              " → " +
-              (hasFlaw ? "FLAW" : "clean"),
+            "  #" + issue.id + " % " + modulus + " = " + (issue.id % modulus) + " → " + (hasFlaw ? "FLAW" : "clean"),
           );
         }
       },
@@ -898,8 +673,7 @@
       id: "e2e-happy-path",
       name: "E2E: happy path Business → Dev → Test → Sec → Release → Accept",
       category: "e2e",
-      description:
-        "Full clean flow. Open index.html in another tab to watch cards traverse.",
+      description: "Full clean flow. Open index.html in another tab to watch cards traverse.",
       async run(ctx) {
         ctx.log("→ roles");
         const biz = await ctx.createUser("business", null, "biz");
@@ -910,16 +684,11 @@
         await ctx.pause();
 
         ctx.log("→ business creates");
-        const issue = await ctx.createIssue(biz, "happy-path", {
-          batch_size: 1,
-        });
+        const issue = await ctx.createIssue(biz, "happy-path", {batch_size: 1});
         await ctx.pause();
 
         ctx.log("→ dev claims");
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-HAPPY",
-          status: "in_progress",
-        });
+        await ctx.updateIssue(issue.id, {team: "TEST-HAPPY", status: "in_progress"});
         await ctx.pause();
 
         ctx.log("→ dev adds + completes one task");
@@ -929,30 +698,24 @@
         await ctx.pause();
 
         ctx.log("→ dev sends to testing");
-        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.updateIssue(issue.id, {status: "testing"});
         await ctx.pause();
 
         ctx.log("→ tester passes");
-        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.updateIssue(issue.id, {status: "security"});
         await ctx.pause();
 
         ctx.log("→ security passes");
-        await ctx.updateIssue(issue.id, { status: "to_deploy" });
+        await ctx.updateIssue(issue.id, {status: "to_deploy"});
         await ctx.pause();
 
         ctx.log("→ release deploys");
-        await ctx.updateIssue(issue.id, { status: "in_production" });
+        await ctx.updateIssue(issue.id, {status: "in_production"});
         await ctx.pause();
 
         ctx.log("→ business accepts (archive)");
-        await supabase
-          .from("hacker_log")
-          .update({ target_issue_id: null })
-          .eq("target_issue_id", issue.id);
-        const { error } = await supabase
-          .from("issues")
-          .delete()
-          .eq("id", issue.id);
+        await supabase.from("hacker_log").update({target_issue_id: null}).eq("target_issue_id", issue.id);
+        const {error} = await supabase.from("issues").delete().eq("id", issue.id);
         if (error) throw new Error("accept: " + error.message);
         // Remove from tracked issues so cleanup does not try to re-delete.
         ctx.issues = ctx.issues.filter((i) => i.id !== issue.id);
@@ -968,38 +731,29 @@
         const dev = await ctx.createUser("developer", "TEST-FB", "dev");
 
         const issue = await ctx.createIssue(biz, "feedback-loop");
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-FB",
-          status: "in_progress",
-        });
+        await ctx.updateIssue(issue.id, {team: "TEST-FB", status: "in_progress"});
         const t = await ctx.createTask(issue, dev);
         await ctx.completeTask(t);
         await ctx.pause();
 
         // Fast-forward to production
-        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.updateIssue(issue.id, {status: "testing"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.updateIssue(issue.id, {status: "security"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "to_deploy" });
+        await ctx.updateIssue(issue.id, {status: "to_deploy"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "in_production" });
+        await ctx.updateIssue(issue.id, {status: "in_production"});
         await ctx.pause();
 
         ctx.log("→ business rejects to feedback");
-        await ctx.updateIssue(issue.id, {
-          status: "feedback",
-          feedback_reason: "regression after accept",
-        });
+        await ctx.updateIssue(issue.id, {status: "feedback", feedback_reason: "regression after accept"});
         await ctx.pause();
         let fresh = await ctx.fetchIssue(issue.id);
         assert(fresh.status === "feedback", "lands in feedback");
 
         ctx.log("→ dev picks up (reason cleared)");
-        await ctx.updateIssue(issue.id, {
-          status: "in_progress",
-          feedback_reason: null,
-        });
+        await ctx.updateIssue(issue.id, {status: "in_progress", feedback_reason: null});
         fresh = await ctx.fetchIssue(issue.id);
         assert(fresh.feedback_reason === null, "reason cleared on pickup");
       },
@@ -1013,31 +767,26 @@
         const dev = await ctx.createUser("developer", "TEST-CATCH", "dev");
         const hacker = await ctx.createUser("hacker", "TEST-CATCH", "hax");
 
-        const issue = await ctx.createIssue(biz, "will-be-hacked", {
-          sprint: 2,
-        });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-CATCH",
-          status: "in_progress",
-        });
+        const issue = await ctx.createIssue(biz, "will-be-hacked", {sprint: 2});
+        await ctx.updateIssue(issue.id, {team: "TEST-CATCH", status: "in_progress"});
         const t = await ctx.createTask(issue, dev);
         await ctx.completeTask(t);
         await ctx.pause();
 
         ctx.log("→ hacker injects (hacked_flag=true, log pending)");
-        await ctx.updateIssue(issue.id, { hacked_flag: true });
+        await ctx.updateIssue(issue.id, {hacked_flag: true});
         await ctx.logHackerAttempt(hacker, issue, 2, null); // caught = null
         await ctx.pause();
 
-        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.updateIssue(issue.id, {status: "testing"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.updateIssue(issue.id, {status: "security"});
         await ctx.pause();
 
         ctx.log("→ security rejects (flag cleared, log = caught)");
         await supabase
           .from("hacker_log")
-          .update({ caught_by_security: true })
+          .update({caught_by_security: true})
           .eq("target_issue_id", issue.id)
           .is("caught_by_security", null);
         await ctx.updateIssue(issue.id, {
@@ -1050,11 +799,7 @@
         assert(fresh.status === "in_progress", "back to dev");
         assert(fresh.hacked_flag === false, "flag cleared after rejection");
 
-        const { data: log } = await supabase
-          .from("hacker_log")
-          .select("*")
-          .eq("target_issue_id", issue.id)
-          .single();
+        const {data: log} = await supabase.from("hacker_log").select("*").eq("target_issue_id", issue.id).single();
         assert(log.caught_by_security === true, "logged as caught");
         ctx.log("✓ retro data intact");
       },
@@ -1070,46 +815,36 @@
         const dev = await ctx.createUser("developer", "TEST-MISS", "dev");
         const hacker = await ctx.createUser("hacker", "TEST-MISS", "hax");
 
-        const issue = await ctx.createIssue(biz, "slippery", { sprint: 2 });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-MISS",
-          status: "in_progress",
-        });
+        const issue = await ctx.createIssue(biz, "slippery", {sprint: 2});
+        await ctx.updateIssue(issue.id, {team: "TEST-MISS", status: "in_progress"});
         const t = await ctx.createTask(issue, dev);
         await ctx.completeTask(t);
         await ctx.pause();
 
         ctx.log("→ hacker injects");
-        await ctx.updateIssue(issue.id, { hacked_flag: true });
+        await ctx.updateIssue(issue.id, {hacked_flag: true});
         await ctx.logHackerAttempt(hacker, issue, 2, null);
         await ctx.pause();
 
         ctx.log("→ through testing and security (miss)");
-        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.updateIssue(issue.id, {status: "testing"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.updateIssue(issue.id, {status: "security"});
         await ctx.pause();
         await supabase
           .from("hacker_log")
-          .update({ caught_by_security: false })
+          .update({caught_by_security: false})
           .eq("target_issue_id", issue.id)
           .is("caught_by_security", null);
-        await ctx.updateIssue(issue.id, { status: "to_deploy" });
+        await ctx.updateIssue(issue.id, {status: "to_deploy"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "in_production" });
+        await ctx.updateIssue(issue.id, {status: "in_production"});
         await ctx.pause();
 
         ctx.log("→ business rejects to feedback (log preserved)");
-        await ctx.updateIssue(issue.id, {
-          status: "feedback",
-          feedback_reason: "flaw reached production",
-        });
+        await ctx.updateIssue(issue.id, {status: "feedback", feedback_reason: "flaw reached production"});
 
-        const { data: log } = await supabase
-          .from("hacker_log")
-          .select("*")
-          .eq("target_issue_id", issue.id)
-          .single();
+        const {data: log} = await supabase.from("hacker_log").select("*").eq("target_issue_id", issue.id).single();
         assert(log.caught_by_security === false, "logged as leaked");
       },
     },
@@ -1117,22 +852,15 @@
       id: "e2e-container-blocks",
       name: "E2E (logic): Sprint 3 container blocks inject_flaw",
       category: "e2e",
-      description:
-        "The canAct rule for inject_flaw requires !issue.containerized. This asserts that rule directly.",
+      description: "The canAct rule for inject_flaw requires !issue.containerized. This asserts that rule directly.",
       async run(ctx) {
         const biz = await ctx.createUser("business", null, "biz");
         const dev = await ctx.createUser("developer", "TEST-CONT", "dev");
         await ctx.createUser("hacker", "TEST-CONT", "hax");
 
-        const issue = await ctx.createIssue(biz, "container-protected", {
-          sprint: 3,
-        });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-CONT",
-          status: "in_progress",
-          containerized: true,
-        });
-        await ctx.createTask(issue, dev, { containerized: true });
+        const issue = await ctx.createIssue(biz, "container-protected", {sprint: 3});
+        await ctx.updateIssue(issue.id, {team: "TEST-CONT", status: "in_progress", containerized: true});
+        await ctx.createTask(issue, dev, {containerized: true});
         await ctx.pause();
 
         // Simulate the permission rule from canAct:
@@ -1144,10 +872,7 @@
           (fresh.status === "in_progress" || fresh.status === "testing") &&
           !fresh.hacked_flag &&
           !fresh.containerized;
-        assert(
-          !canInject,
-          "canAct(inject_flaw) must be false when containerized",
-        );
+        assert(!canInject, "canAct(inject_flaw) must be false when containerized");
         ctx.log("✓ containerization rule holds");
       },
     },
@@ -1166,25 +891,25 @@
       async run(ctx) {
         await ctx.snapshotGameState();
         // Deterministic start.
-        await ctx.updateGameState({ current_sprint: 1 });
+        await ctx.updateGameState({current_sprint: 1});
         await ctx.pause();
         let gs = await ctx.fetchGameState();
         assert(gs.current_sprint === 1, "starts at 1");
 
         ctx.log("→ advance to sprint 2");
-        await ctx.updateGameState({ current_sprint: 2 });
+        await ctx.updateGameState({current_sprint: 2});
         await ctx.pause();
         gs = await ctx.fetchGameState();
         assert(gs.current_sprint === 2, "advanced to 2");
 
         ctx.log("→ advance to sprint 3");
-        await ctx.updateGameState({ current_sprint: 3 });
+        await ctx.updateGameState({current_sprint: 3});
         await ctx.pause();
         gs = await ctx.fetchGameState();
         assert(gs.current_sprint === 3, "advanced to 3");
 
         ctx.log("→ reset back to 1");
-        await ctx.updateGameState({ current_sprint: 1 });
+        await ctx.updateGameState({current_sprint: 1});
         await ctx.pause();
         gs = await ctx.fetchGameState();
         assert(gs.current_sprint === 1, "reset to 1");
@@ -1211,10 +936,7 @@
             " → " +
             newHackers,
         );
-        await ctx.updateGameState({
-          security_modulus: newMod,
-          hacker_count: newHackers,
-        });
+        await ctx.updateGameState({security_modulus: newMod, hacker_count: newHackers});
         await ctx.pause();
         const gs = await ctx.fetchGameState();
         assert(gs.security_modulus === newMod, "modulus persisted");
@@ -1230,7 +952,7 @@
         "Sets current_sprint=2 in the real game_state, runs the business → dev → hacker injects → tester → security catches flow, and verifies hacker_log reflects a caught attempt. Auto-restores game_state afterward.",
       async run(ctx) {
         await ctx.snapshotGameState();
-        await ctx.updateGameState({ current_sprint: 2 });
+        await ctx.updateGameState({current_sprint: 2});
         await ctx.pause();
 
         const biz = await ctx.createUser("business", null, "biz");
@@ -1240,13 +962,8 @@
         const hax = await ctx.createUser("hacker", "TEST-S2", "hax");
 
         ctx.log("→ business creates, dev claims + completes");
-        const issue = await ctx.createIssue(biz, "sprint2-hacker-caught", {
-          sprint: 2,
-        });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-S2",
-          status: "in_progress",
-        });
+        const issue = await ctx.createIssue(biz, "sprint2-hacker-caught", {sprint: 2});
+        await ctx.updateIssue(issue.id, {team: "TEST-S2", status: "in_progress"});
         const task = await ctx.createTask(issue, dev);
         await ctx.completeTask(task);
         await ctx.pause();
@@ -1255,32 +972,28 @@
         // injection at sprint 2 (this is the whole point of advancing).
         if (window.App && window.App.logic) {
           const fresh0 = await ctx.fetchIssue(issue.id);
-          const canInject = window.App.logic.canAct(
-            { role: "hacker", team: "TEST-S2" },
-            null,
-            fresh0,
-            "inject_flaw",
-            { gameState: { current_sprint: 2 } },
-          );
+          const canInject = window.App.logic.canAct({role: "hacker", team: "TEST-S2"}, null, fresh0, "inject_flaw", {
+            gameState: {current_sprint: 2},
+          });
           assert(canInject, "canAct permits hacker inject at sprint 2");
           ctx.log("  ✓ live canAct: inject allowed at sprint 2");
         }
 
         ctx.log("→ hacker injects");
-        await ctx.updateIssue(issue.id, { hacked_flag: true });
+        await ctx.updateIssue(issue.id, {hacked_flag: true});
         await ctx.logHackerAttempt(hax, issue, 2, null);
         await ctx.pause();
 
         ctx.log("→ dev sends to testing, passes through security");
-        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.updateIssue(issue.id, {status: "testing"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.updateIssue(issue.id, {status: "security"});
         await ctx.pause();
 
         ctx.log("→ security catches flaw, bounces to in_progress");
         await supabase
           .from("hacker_log")
-          .update({ caught_by_security: true })
+          .update({caught_by_security: true})
           .eq("target_issue_id", issue.id)
           .is("caught_by_security", null);
         await ctx.updateIssue(issue.id, {
@@ -1292,11 +1005,7 @@
         const fresh = await ctx.fetchIssue(issue.id);
         assert(fresh.hacked_flag === false, "flag cleared after catch");
         assert(fresh.status === "in_progress", "bounced back to dev");
-        const { data: log } = await supabase
-          .from("hacker_log")
-          .select("*")
-          .eq("target_issue_id", issue.id)
-          .single();
+        const {data: log} = await supabase.from("hacker_log").select("*").eq("target_issue_id", issue.id).single();
         assert(log.sprint === 2, "logged under sprint 2");
         assert(log.caught_by_security === true, "logged as caught");
         ctx.log("✓ sprint 2 end-to-end complete; restore will follow");
@@ -1310,55 +1019,40 @@
         "Sets current_sprint=3, creates a containerized issue+task, and evaluates canAct through the real App.logic path (not a reimplementation) to confirm injection is blocked. Checks both a real hacker and a facilitator-as-hacker. Auto-restores.",
       async run(ctx) {
         await ctx.snapshotGameState();
-        await ctx.updateGameState({ current_sprint: 3 });
+        await ctx.updateGameState({current_sprint: 3});
         await ctx.pause();
 
-        assert(
-          window.App && window.App.logic,
-          "App.logic must be available for this sprint 3 test (load app.js)",
-        );
+        assert(window.App && window.App.logic, "App.logic must be available for this sprint 3 test (load app.js)");
 
         const biz = await ctx.createUser("business", null, "biz");
         const dev = await ctx.createUser("developer", "TEST-S3C", "dev");
         const hax = await ctx.createUser("hacker", "TEST-S3C", "hax");
 
-        const issue = await ctx.createIssue(biz, "sprint3-containerized", {
-          sprint: 3,
-        });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-S3C",
-          status: "in_progress",
-          containerized: true,
-        });
-        await ctx.createTask(issue, dev, { containerized: true });
+        const issue = await ctx.createIssue(biz, "sprint3-containerized", {sprint: 3});
+        await ctx.updateIssue(issue.id, {team: "TEST-S3C", status: "in_progress", containerized: true});
+        await ctx.createTask(issue, dev, {containerized: true});
         await ctx.pause();
 
         const fresh = await ctx.fetchIssue(issue.id);
-        const gs3 = { current_sprint: 3 };
+        const gs3 = {current_sprint: 3};
 
         // Hacker attempting to inject
-        const hackerCan = window.App.logic.canAct(
-          { role: "hacker", team: "TEST-S3C" },
-          null,
-          fresh,
-          "inject_flaw",
-          { gameState: gs3 },
-        );
+        const hackerCan = window.App.logic.canAct({role: "hacker", team: "TEST-S3C"}, null, fresh, "inject_flaw", {
+          gameState: gs3,
+        });
         assert(!hackerCan, "containerized blocks real hacker at sprint 3");
 
         // Facilitator impersonating hacker
         const facilCan = window.App.logic.canAct(
-          { role: "facilitator", team: null },
-          { role: "hacker", team: "" },
+          {role: "facilitator", team: null},
+          {role: "hacker", team: ""},
           fresh,
           "inject_flaw",
-          { gameState: gs3 },
+          {gameState: gs3},
         );
         assert(!facilCan, "containerized blocks facil-as-hacker at sprint 3");
 
-        ctx.log(
-          "✓ container blocks injection via live canAct; restore will follow",
-        );
+        ctx.log("✓ container blocks injection via live canAct; restore will follow");
       },
     },
     {
@@ -1369,56 +1063,41 @@
         "Negative control: at sprint 3 without the container flag, injection must still succeed via canAct. Without this test, a bug that universally blocks injection at sprint 3 would look identical to the container-blocks test. Auto-restores.",
       async run(ctx) {
         await ctx.snapshotGameState();
-        await ctx.updateGameState({ current_sprint: 3 });
+        await ctx.updateGameState({current_sprint: 3});
         await ctx.pause();
 
-        assert(
-          window.App && window.App.logic,
-          "App.logic must be available for this sprint 3 test (load app.js)",
-        );
+        assert(window.App && window.App.logic, "App.logic must be available for this sprint 3 test (load app.js)");
 
         const biz = await ctx.createUser("business", null, "biz");
         const dev = await ctx.createUser("developer", "TEST-S3N", "dev");
         const hax = await ctx.createUser("hacker", "TEST-S3N", "hax");
 
-        const issue = await ctx.createIssue(biz, "sprint3-plain", {
-          sprint: 3,
-        });
-        await ctx.updateIssue(issue.id, {
-          team: "TEST-S3N",
-          status: "in_progress",
-        });
+        const issue = await ctx.createIssue(biz, "sprint3-plain", {sprint: 3});
+        await ctx.updateIssue(issue.id, {team: "TEST-S3N", status: "in_progress"});
         await ctx.createTask(issue, dev);
         await ctx.pause();
 
         const fresh = await ctx.fetchIssue(issue.id);
-        const gs3 = { current_sprint: 3 };
-        const canInject = window.App.logic.canAct(
-          { role: "hacker", team: "TEST-S3N" },
-          null,
-          fresh,
-          "inject_flaw",
-          { gameState: gs3 },
-        );
-        assert(
-          canInject,
-          "non-containerized MUST still be injectable at sprint 3",
-        );
+        const gs3 = {current_sprint: 3};
+        const canInject = window.App.logic.canAct({role: "hacker", team: "TEST-S3N"}, null, fresh, "inject_flaw", {
+          gameState: gs3,
+        });
+        assert(canInject, "non-containerized MUST still be injectable at sprint 3");
 
         // Also do a real DB injection + security-catches round-trip.
         ctx.log("→ actually inject");
-        await ctx.updateIssue(issue.id, { hacked_flag: true });
+        await ctx.updateIssue(issue.id, {hacked_flag: true});
         await ctx.logHackerAttempt(hax, issue, 3, null);
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "testing" });
+        await ctx.updateIssue(issue.id, {status: "testing"});
         await ctx.pause();
-        await ctx.updateIssue(issue.id, { status: "security" });
+        await ctx.updateIssue(issue.id, {status: "security"});
         await ctx.pause();
 
         ctx.log("→ security catches");
         await supabase
           .from("hacker_log")
-          .update({ caught_by_security: true })
+          .update({caught_by_security: true})
           .eq("target_issue_id", issue.id)
           .is("caught_by_security", null);
         await ctx.updateIssue(issue.id, {
@@ -1426,15 +1105,9 @@
           status: "in_progress",
           feedback_reason: "Security flaw detected",
         });
-        const { data: log } = await supabase
-          .from("hacker_log")
-          .select("*")
-          .eq("target_issue_id", issue.id)
-          .single();
+        const {data: log} = await supabase.from("hacker_log").select("*").eq("target_issue_id", issue.id).single();
         assert(log.sprint === 3, "logged under sprint 3");
-        ctx.log(
-          "✓ sprint 3 plain issue is still hackable; restore will follow",
-        );
+        ctx.log("✓ sprint 3 plain issue is still hackable; restore will follow");
       },
     },
 
@@ -1454,10 +1127,7 @@
         if (r1.error) throw new Error("delete issues: " + r1.error.message);
 
         ctx.log("→ delete orphan hacker_log rows (target_issue_id = null)");
-        const r2 = await supabase
-          .from("hacker_log")
-          .delete()
-          .is("target_issue_id", null);
+        const r2 = await supabase.from("hacker_log").delete().is("target_issue_id", null);
         if (r2.error) throw new Error("delete hacker_log: " + r2.error.message);
 
         ctx.log("→ delete TEST- users");
@@ -1480,11 +1150,7 @@
     supabase,
     TestContext,
     sleep,
-    constants: {
-      TEST_USER_PREFIX,
-      TEST_ISSUE_PREFIX,
-      DEFAULT_DELAY_MS,
-    },
+    constants: {TEST_USER_PREFIX, TEST_ISSUE_PREFIX, DEFAULT_DELAY_MS},
     async runTest(testId, logFn, delayMs) {
       const t = tests.find((x) => x.id === testId);
       if (!t) throw new Error("unknown test: " + testId);

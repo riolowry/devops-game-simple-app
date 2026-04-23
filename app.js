@@ -14,11 +14,7 @@
   // ============================================================
   // Config check
   // ============================================================
-  if (
-    !window.CONFIG ||
-    !window.CONFIG.SUPABASE_URL ||
-    window.CONFIG.SUPABASE_URL.includes("YOUR-PROJECT-REF")
-  ) {
+  if (!window.CONFIG || !window.CONFIG.SUPABASE_URL || window.CONFIG.SUPABASE_URL.includes("YOUR-PROJECT-REF")) {
     document.addEventListener("DOMContentLoaded", () => {
       document.body.innerHTML = `
         <div style="font-family: system-ui; max-width: 600px; margin: 4rem auto; padding: 1rem;">
@@ -49,15 +45,7 @@
   // ============================================================
   // Constants
   // ============================================================
-  const COLUMN_ORDER = [
-    "market",
-    "in_progress",
-    "testing",
-    "security",
-    "to_deploy",
-    "in_production",
-    "feedback",
-  ];
+  const COLUMN_ORDER = ["market", "in_progress", "testing", "security", "to_deploy", "in_production", "feedback"];
 
   const COLUMN_LABELS = {
     market: "Market",
@@ -81,39 +69,18 @@
   };
 
   // Must match the CHECK constraint in schema.sql exactly.
-  const VALID_ROLES = [
-    "business",
-    "developer",
-    "tester",
-    "security",
-    "release",
-    "observer",
-    "hacker",
-    "facilitator",
-  ];
+  const VALID_ROLES = ["business", "developer", "tester", "security", "release", "observer", "hacker", "facilitator"];
 
   // Participant roles eligible to be secretly promoted to Hacker.
   // Excludes 'facilitator' (conflict of interest with the audit log)
   // and 'hacker' itself (already promoted).
-  const HACKER_CANDIDATE_ROLES = [
-    "business",
-    "developer",
-    "tester",
-    "security",
-    "release",
-    "observer",
-  ];
+  const HACKER_CANDIDATE_ROLES = ["business", "developer", "tester", "security", "release", "observer"];
 
   // Statuses a Hacker may inject flaws into. Excludes:
   //   'market'        nothing to hack yet (no team, no work)
   //   'in_production' already deployed; defeats "catch before ship"
   //   'feedback'      rejected, waiting for rework pickup
-  const HACKER_INJECTABLE_STATUSES = [
-    "in_progress",
-    "testing",
-    "security",
-    "to_deploy",
-  ];
+  const HACKER_INJECTABLE_STATUSES = ["in_progress", "testing", "security", "to_deploy"];
 
   // Unambiguous alphabet for token generation (no 0 O I 1 l).
   const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -165,10 +132,10 @@
   }
 
   function logic_progressFor(issue, tasks) {
-    if (!issue) return { done: 0, total: 0, all: 0 };
+    if (!issue) return {done: 0, total: 0, all: 0};
     const ts = (tasks || []).filter((t) => t.parent_issue_id === issue.id);
     const done = ts.filter((t) => t.status === "complete").length;
-    return { done, total: issue.batch_size, all: ts.length };
+    return {done, total: issue.batch_size, all: ts.length};
   }
 
   function logic_batchGateOpen(issue, tasks) {
@@ -178,13 +145,13 @@
 
   // Deterministic + injected flaw detection. Same rule Security uses.
   function logic_detectFlaw(issue, securityModulus) {
-    if (!issue) return { has_flaw: false, source: "none" };
+    if (!issue) return {has_flaw: false, source: "none"};
     const modulus = Math.max(2, securityModulus || 7);
     const deterministic = Number(issue.id) % modulus === 0;
     const injected = issue.hacked_flag === true;
-    if (injected) return { has_flaw: true, source: "injected" };
-    if (deterministic) return { has_flaw: true, source: "deterministic" };
-    return { has_flaw: false, source: "none" };
+    if (injected) return {has_flaw: true, source: "injected"};
+    if (deterministic) return {has_flaw: true, source: "deterministic"};
+    return {has_flaw: false, source: "none"};
   }
 
   // canAct: pure permission check. ctx is { gameState, tasks, securityCheckResult }.
@@ -211,19 +178,9 @@
       case "claim":
         return role === "developer" && s === "market" && !issue.team;
       case "add_task":
-        return (
-          role === "developer" &&
-          s === "in_progress" &&
-          !!issue.team &&
-          issue.team === team
-        );
+        return role === "developer" && s === "in_progress" && !!issue.team && issue.team === team;
       case "send_to_testing":
-        return (
-          role === "developer" &&
-          s === "in_progress" &&
-          issue.team === team &&
-          logic_batchGateOpen(issue, tasks)
-        );
+        return role === "developer" && s === "in_progress" && issue.team === team && logic_batchGateOpen(issue, tasks);
       case "pass_testing":
       case "fail_testing":
         return role === "tester" && s === "testing";
@@ -231,12 +188,7 @@
         return role === "security" && s === "security";
       case "pass_security":
       case "reject_security":
-        return (
-          role === "security" &&
-          s === "security" &&
-          !!scr &&
-          scr.issue_id === issue.id
-        );
+        return role === "security" && s === "security" && !!scr && scr.issue_id === issue.id;
       case "deploy":
         return role === "release" && s === "to_deploy";
       case "accept_production":
@@ -265,11 +217,9 @@
   // ============================================================
   // Supabase client
   // ============================================================
-  const supabase = window.supabase.createClient(
-    window.CONFIG.SUPABASE_URL,
-    window.CONFIG.SUPABASE_ANON_KEY,
-    { realtime: { params: { eventsPerSecond: 10 } } },
-  );
+  const supabase = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY, {
+    realtime: {params: {eventsPerSecond: 10}},
+  });
 
   // ============================================================
   // Alpine store definition
@@ -301,7 +251,7 @@
       // Facilitator-only: lets the facilitator act as another role/team
       // without logging out. Ignored for non-facilitators. Both fields
       // empty-string means "observe only" (no action buttons shown).
-      impersonation: { role: "", team: "" },
+      impersonation: {role: "", team: ""},
       _initialized: false, // FIX: idempotency guard for init()
 
       // -------- initialization --------
@@ -364,11 +314,7 @@
       },
 
       async loadGameState() {
-        const { data, error } = await supabase
-          .from("game_state")
-          .select("*")
-          .eq("id", 1)
-          .maybeSingle();
+        const {data, error} = await supabase.from("game_state").select("*").eq("id", 1).maybeSingle();
         if (error) {
           console.error("gameState load:", error);
           return;
@@ -378,10 +324,7 @@
       },
 
       async loadIssues() {
-        const { data, error } = await supabase
-          .from("issues")
-          .select("*")
-          .order("id", { ascending: true });
+        const {data, error} = await supabase.from("issues").select("*").order("id", {ascending: true});
         if (error) {
           console.error("issues load:", error);
           return;
@@ -390,10 +333,7 @@
       },
 
       async loadTasks() {
-        const { data, error } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("id", { ascending: true });
+        const {data, error} = await supabase.from("tasks").select("*").order("id", {ascending: true});
         if (error) {
           console.error("tasks load:", error);
           return;
@@ -402,10 +342,7 @@
       },
 
       async loadUsers() {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .order("created_at", { ascending: true });
+        const {data, error} = await supabase.from("users").select("*").order("created_at", {ascending: true});
         if (error) {
           console.error("users load:", error);
           return;
@@ -419,19 +356,14 @@
           if (fresh) {
             this.user = fresh;
           } else {
-            console.warn(
-              "Logged-in token no longer in users table; logging out.",
-            );
+            console.warn("Logged-in token no longer in users table; logging out.");
             this.logout();
           }
         }
       },
 
       async loadHackerLog() {
-        const { data, error } = await supabase
-          .from("hacker_log")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const {data, error} = await supabase.from("hacker_log").select("*").order("created_at", {ascending: false});
         if (error) {
           console.error("hacker_log load:", error);
           return;
@@ -459,14 +391,10 @@
         tables.forEach((table) => {
           const ch = supabase
             .channel("pub:" + table)
-            .on(
-              "postgres_changes",
-              { event: "*", schema: "public", table: table },
-              () => {
-                dlog("realtime change:", table);
-                this.handleRealtimeChange(table);
-              },
-            )
+            .on("postgres_changes", {event: "*", schema: "public", table: table}, () => {
+              dlog("realtime change:", table);
+              this.handleRealtimeChange(table);
+            })
             .subscribe((status) => {
               dlog("subscribe status", table, status);
               if (status === "SUBSCRIBED") {
@@ -486,9 +414,7 @@
         // Polling fallback if realtime does not establish within 3s
         setTimeout(() => {
           if (!connected) {
-            console.warn(
-              "Realtime not connected after 3s; starting polling fallback",
-            );
+            console.warn("Realtime not connected after 3s; starting polling fallback");
             this.connectionMode = "polling";
             this.startPolling();
           }
@@ -541,16 +467,12 @@
         await this.loadUsers();
         const match = this.users.find((u) => u.token === token);
         if (!match) {
-          this.loginError =
-            "Token not recognized. Check with your facilitator.";
+          this.loginError = "Token not recognized. Check with your facilitator.";
           return false;
         }
         this.user = match;
         try {
-          localStorage.setItem(
-            "devsec_user",
-            JSON.stringify({ token: match.token }),
-          );
+          localStorage.setItem("devsec_user", JSON.stringify({token: match.token}));
         } catch (e) {
           /* private browsing may block */
         }
@@ -559,7 +481,7 @@
 
       logout() {
         this.user = null;
-        this.impersonation = { role: "", team: "" };
+        this.impersonation = {role: "", team: ""};
         try {
           localStorage.removeItem("devsec_user");
           localStorage.removeItem("devsec_impersonation");
@@ -600,8 +522,7 @@
           "bg-cyan-100 text-cyan-900",
         ];
         let h = 0;
-        for (let i = 0; i < team.length; i++)
-          h = (h * 31 + team.charCodeAt(i)) >>> 0;
+        for (let i = 0; i < team.length; i++) h = (h * 31 + team.charCodeAt(i)) >>> 0;
         return palette[h % palette.length];
       },
       columnOrder() {
@@ -649,13 +570,10 @@
       // per-card state (e.g. an in-progress security check that referenced
       // the previous role's view).
       setImpersonation(partial) {
-        this.impersonation = { ...this.impersonation, ...(partial || {}) };
+        this.impersonation = {...this.impersonation, ...(partial || {})};
         this.securityCheckResult = null;
         try {
-          localStorage.setItem(
-            "devsec_impersonation",
-            JSON.stringify(this.impersonation),
-          );
+          localStorage.setItem("devsec_impersonation", JSON.stringify(this.impersonation));
         } catch (e) {
           /* ignore */
         }
@@ -673,7 +591,7 @@
       },
 
       // -------- issue actions --------
-      async createIssue({ title, description_url, price, batch_size }) {
+      async createIssue({title, description_url, price, batch_size}) {
         // Delegate to canAct so the single source of truth (logic_canAct)
         // decides. This fixes the bug where a facilitator simulating as
         // Business was rejected because the old check read this.user.role
@@ -682,7 +600,7 @@
           this.toast("Only Business can create Product Requests.");
           return;
         }
-        const { error } = await supabase.from("issues").insert({
+        const {error} = await supabase.from("issues").insert({
           title: (title || "").trim(),
           description_url: (description_url || "").trim() || null,
           status: "market", // explicit (matches schema default)
@@ -711,10 +629,7 @@
           this.toast("You are not on a team. Ask your facilitator.");
           return;
         }
-        const { error } = await supabase
-          .from("issues")
-          .update({ team, status: "in_progress" })
-          .eq("id", issue.id);
+        const {error} = await supabase.from("issues").update({team, status: "in_progress"}).eq("id", issue.id);
         if (error) {
           console.error("claimIssue:", error);
           this.toast("Claim failed: " + error.message);
@@ -740,18 +655,14 @@
 
       runSecurityCheck(issue) {
         const res = logic_detectFlaw(issue, this.gameState.security_modulus);
-        this.securityCheckResult = {
-          issue_id: issue.id,
-          has_flaw: res.has_flaw,
-          source: res.source,
-        };
+        this.securityCheckResult = {issue_id: issue.id, has_flaw: res.has_flaw, source: res.source};
       },
 
       async passSecurity(issue) {
         if (issue.hacked_flag) {
-          const { error } = await supabase
+          const {error} = await supabase
             .from("hacker_log")
-            .update({ caught_by_security: false })
+            .update({caught_by_security: false})
             .eq("target_issue_id", issue.id)
             .is("caught_by_security", null);
           if (error) console.error("hacker_log update (passSecurity):", error);
@@ -764,23 +675,18 @@
         if (issue.hacked_flag) {
           await supabase
             .from("hacker_log")
-            .update({ caught_by_security: true })
+            .update({caught_by_security: true})
             .eq("target_issue_id", issue.id)
             .is("caught_by_security", null);
           // Clear the flag since the flaw is being sent back for rework
           await supabase
             .from("issues")
-            .update({
-              hacked_flag: false,
-              feedback_reason: reason || "Security issue detected",
-            })
+            .update({hacked_flag: false, feedback_reason: reason || "Security issue detected"})
             .eq("id", issue.id);
         } else {
           await supabase
             .from("issues")
-            .update({
-              feedback_reason: reason || "Security issue detected",
-            })
+            .update({feedback_reason: reason || "Security issue detected"})
             .eq("id", issue.id);
         }
         await this.setStatus(issue.id, "in_progress");
@@ -797,15 +703,9 @@
         // caught/leaked counts lose every flaw that reached production and
         // was accepted (i.e. the ones we most want to discuss in the retro).
         // Null the FK first so the log rows persist after issue deletion.
-        await supabase
-          .from("hacker_log")
-          .update({ target_issue_id: null })
-          .eq("target_issue_id", issue.id);
+        await supabase.from("hacker_log").update({target_issue_id: null}).eq("target_issue_id", issue.id);
 
-        const { error } = await supabase
-          .from("issues")
-          .delete()
-          .eq("id", issue.id);
+        const {error} = await supabase.from("issues").delete().eq("id", issue.id);
         if (error) {
           console.error("acceptProduction:", error);
           this.toast("Accept failed: " + error.message);
@@ -818,15 +718,13 @@
         if (issue.hacked_flag) {
           await supabase
             .from("hacker_log")
-            .update({ caught_by_security: false })
+            .update({caught_by_security: false})
             .eq("target_issue_id", issue.id)
             .is("caught_by_security", null);
         }
         await supabase
           .from("issues")
-          .update({
-            feedback_reason: reason || "Rejected by Business",
-          })
+          .update({feedback_reason: reason || "Rejected by Business"})
           .eq("id", issue.id);
         await this.setStatus(issue.id, "feedback");
       },
@@ -835,18 +733,12 @@
         // Clear stale rejection reason on pickup so the developer has a
         // clean slate. If the issue gets rejected again, a fresh reason
         // is written at that point.
-        await supabase
-          .from("issues")
-          .update({ feedback_reason: null })
-          .eq("id", issue.id);
+        await supabase.from("issues").update({feedback_reason: null}).eq("id", issue.id);
         await this.setStatus(issue.id, "in_progress");
       },
 
       async setStatus(id, status) {
-        const { error } = await supabase
-          .from("issues")
-          .update({ status })
-          .eq("id", id);
+        const {error} = await supabase.from("issues").update({status}).eq("id", id);
         if (error) {
           console.error("setStatus:", error);
           this.toast("Update failed: " + error.message);
@@ -854,26 +746,24 @@
       },
 
       // -------- task actions --------
-      async createTask(issue, { containerized }) {
+      async createTask(issue, {containerized}) {
         if (!this.user) return;
-        const isContainer =
-          !!containerized && this.gameState.current_sprint >= 3;
-        const { error } = await supabase.from("tasks").insert({
-          parent_issue_id: issue.id,
-          assignee_token: this.user.token,
-          status: "claimed",
-          containerized: isContainer,
-        });
+        const isContainer = !!containerized && this.gameState.current_sprint >= 3;
+        const {error} = await supabase
+          .from("tasks")
+          .insert({
+            parent_issue_id: issue.id,
+            assignee_token: this.user.token,
+            status: "claimed",
+            containerized: isContainer,
+          });
         if (error) {
           console.error("createTask:", error);
           this.toast("Task create failed: " + error.message);
           return;
         }
         if (isContainer) {
-          const r = await supabase
-            .from("issues")
-            .update({ containerized: true })
-            .eq("id", issue.id);
+          const r = await supabase.from("issues").update({containerized: true}).eq("id", issue.id);
           if (r.error) console.error("mark issue containerized:", r.error);
         }
       },
@@ -883,9 +773,9 @@
           this.toast("Paste an image URL to complete the task.");
           return;
         }
-        const { error } = await supabase
+        const {error} = await supabase
           .from("tasks")
-          .update({ attachment_url: attachmentUrl.trim(), status: "complete" })
+          .update({attachment_url: attachmentUrl.trim(), status: "complete"})
           .eq("id", task.id);
         if (error) {
           console.error("completeTask:", error);
@@ -898,20 +788,15 @@
       // -------- hacker action --------
       async injectFlaw(issue) {
         if (!this.canAct(issue, "inject_flaw")) return;
-        const r1 = await supabase
-          .from("issues")
-          .update({ hacked_flag: true })
-          .eq("id", issue.id);
+        const r1 = await supabase.from("issues").update({hacked_flag: true}).eq("id", issue.id);
         if (r1.error) {
           console.error("injectFlaw issue update:", r1.error);
           this.toast("Injection failed.");
           return;
         }
-        const r2 = await supabase.from("hacker_log").insert({
-          hacker_token: this.user.token,
-          target_issue_id: issue.id,
-          sprint: this.gameState.current_sprint,
-        });
+        const r2 = await supabase
+          .from("hacker_log")
+          .insert({hacker_token: this.user.token, target_issue_id: issue.id, sprint: this.gameState.current_sprint});
         if (r2.error) console.error("injectFlaw log insert:", r2.error);
         this.toast("Injection recorded.");
       },
@@ -919,24 +804,21 @@
       // -------- admin: user management --------
       // FIX: Validate + normalise role client-side so we can show a useful
       // error message instead of an opaque 400 from the DB CHECK constraint.
-      async createUser({ display_name, role, team }) {
+      async createUser({display_name, role, team}) {
         const normalizedRole = (role || "").toString().toLowerCase().trim();
         if (!VALID_ROLES.includes(normalizedRole)) {
-          this.toast(
-            'Invalid role "' +
-              role +
-              '". Must be one of: ' +
-              VALID_ROLES.join(", "),
-          );
+          this.toast('Invalid role "' + role + '". Must be one of: ' + VALID_ROLES.join(", "));
           return null;
         }
         const token = randomToken();
-        const { error } = await supabase.from("users").insert({
-          token,
-          display_name: (display_name || "").toString().trim() || null,
-          role: normalizedRole,
-          team: (team || "").toString().trim() || null,
-        });
+        const {error} = await supabase
+          .from("users")
+          .insert({
+            token,
+            display_name: (display_name || "").toString().trim() || null,
+            role: normalizedRole,
+            team: (team || "").toString().trim() || null,
+          });
         if (error) {
           console.error("createUser:", error);
           this.toast("Create user failed: " + error.message);
@@ -956,19 +838,11 @@
         const invalid = normalized.filter((r) => !VALID_ROLES.includes(r.role));
         if (invalid.length > 0) {
           const badRoles = Array.from(new Set(invalid.map((r) => r.role)));
-          this.toast(
-            "Invalid role(s): " +
-              badRoles.join(", ") +
-              ". Valid: " +
-              VALID_ROLES.join(", "),
-          );
+          this.toast("Invalid role(s): " + badRoles.join(", ") + ". Valid: " + VALID_ROLES.join(", "));
           return [];
         }
-        const payload = normalized.map((r) => ({ token: randomToken(), ...r }));
-        const { data, error } = await supabase
-          .from("users")
-          .insert(payload)
-          .select();
+        const payload = normalized.map((r) => ({token: randomToken(), ...r}));
+        const {data, error} = await supabase.from("users").insert(payload).select();
         if (error) {
           console.error("createUsersBulk:", error, "payload:", payload);
           this.toast("Bulk create failed: " + error.message);
@@ -979,10 +853,7 @@
       },
 
       async deleteUser(token) {
-        const { error } = await supabase
-          .from("users")
-          .delete()
-          .eq("token", token);
+        const {error} = await supabase.from("users").delete().eq("token", token);
         if (error) {
           console.error("deleteUser:", error);
           this.toast("Delete failed: " + error.message);
@@ -990,10 +861,7 @@
       },
 
       async updateGameState(patch) {
-        const { error } = await supabase
-          .from("game_state")
-          .update(patch)
-          .eq("id", 1);
+        const {error} = await supabase.from("game_state").update(patch).eq("id", 1);
         if (error) {
           console.error("updateGameState:", error);
           this.toast("Config update failed: " + error.message);
@@ -1004,11 +872,11 @@
 
       async advanceSprint() {
         const next = Math.min(3, this.gameState.current_sprint + 1);
-        await this.updateGameState({ current_sprint: next });
+        await this.updateGameState({current_sprint: next});
       },
 
       async resetSprint() {
-        await this.updateGameState({ current_sprint: 1 });
+        await this.updateGameState({current_sprint: 1});
       },
 
       // Promote a participant to Hacker. Any role except facilitator
@@ -1029,9 +897,9 @@
           this.toast("Facilitators cannot be hackers (audit-log integrity).");
           return;
         }
-        const { error } = await supabase
+        const {error} = await supabase
           .from("users")
-          .update({ role: "hacker", previous_role: target.role })
+          .update({role: "hacker", previous_role: target.role})
           .eq("token", token);
         if (error) {
           console.error(error);
@@ -1047,9 +915,9 @@
       async demoteHacker(token) {
         const target = this.users.find((u) => u.token === token);
         const restoreRole = (target && target.previous_role) || "developer";
-        const { error } = await supabase
+        const {error} = await supabase
           .from("users")
-          .update({ role: restoreRole, previous_role: null })
+          .update({role: restoreRole, previous_role: null})
           .eq("token", token);
         if (error) {
           console.error(error);
@@ -1076,11 +944,7 @@
         await supabase.from("tasks").delete().neq("id", 0);
         await supabase.from("issues").delete().neq("id", 0);
         await supabase.from("users").delete().neq("role", "facilitator");
-        await this.updateGameState({
-          current_sprint: 1,
-          hacker_count: 0,
-          sprint3_auto_advance_seconds: 0,
-        });
+        await this.updateGameState({current_sprint: 1, hacker_count: 0, sprint3_auto_advance_seconds: 0});
         this.toast("Full reset complete.");
       },
 
@@ -1094,9 +958,7 @@
           tasks: this.tasks,
           hacker_log: this.hackerLog,
         };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], {
-          type: "application/json",
-        });
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json"});
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -1110,16 +972,10 @@
       // -------- hacker stats --------
       hackerStats() {
         const total = this.hackerLog.length;
-        const caught = this.hackerLog.filter(
-          (l) => l.caught_by_security === true,
-        ).length;
-        const leaked = this.hackerLog.filter(
-          (l) => l.caught_by_security === false,
-        ).length;
-        const pending = this.hackerLog.filter(
-          (l) => l.caught_by_security === null,
-        ).length;
-        return { total, caught, leaked, pending };
+        const caught = this.hackerLog.filter((l) => l.caught_by_security === true).length;
+        const leaked = this.hackerLog.filter((l) => l.caught_by_security === false).length;
+        const pending = this.hackerLog.filter((l) => l.caught_by_security === null).length;
+        return {total, caught, leaked, pending};
       },
 
       // -------- toast --------
@@ -1183,14 +1039,12 @@
       const results = {};
       for (const t of tables) {
         try {
-          const { error, count } = await supabase
-            .from(t)
-            .select("*", { count: "exact", head: true });
+          const {error, count} = await supabase.from(t).select("*", {count: "exact", head: true});
           results[t] = error
-            ? { status: "ERROR", code: error.code, message: error.message }
-            : { status: "OK", row_count: count };
+            ? {status: "ERROR", code: error.code, message: error.message}
+            : {status: "OK", row_count: count};
         } catch (e) {
-          results[t] = { status: "EXCEPTION", message: e.message };
+          results[t] = {status: "EXCEPTION", message: e.message};
         }
       }
       console.table(results);

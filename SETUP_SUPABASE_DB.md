@@ -48,10 +48,7 @@ Do **not** copy the `service_role` key. That key bypasses security and must neve
 In this project folder, copy `config.example.js` to `config.js` and fill in:
 
 ```js
-window.CONFIG = {
-  SUPABASE_URL: "https://abcdefghijk.supabase.co",
-  SUPABASE_ANON_KEY: "eyJhbGciOi...",
-};
+window.CONFIG = {SUPABASE_URL: "https://abcdefghijk.supabase.co", SUPABASE_ANON_KEY: "eyJhbGciOi..."};
 ```
 
 Save.

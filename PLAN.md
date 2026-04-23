@@ -355,11 +355,7 @@ Combined rule evaluated server-less, in the browser, at the moment Security clic
 const flawDeterministic = issue.id % gameState.security_modulus === 0;
 const flawInjected = issue.hacked_flag === true;
 const hasFlaw = flawDeterministic || flawInjected;
-const source = flawInjected
-  ? "injected"
-  : flawDeterministic
-    ? "deterministic"
-    : "none";
+const source = flawInjected ? "injected" : flawDeterministic ? "deterministic" : "none";
 ```
 
 The check is shown only to Security. The Developer never sees the modulus; they only see the rejection reason after Security has acted. This preserves the game dynamic (Security is a real gate, not a formality).
