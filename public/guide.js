@@ -18,11 +18,11 @@
   const ALLOWED = {
     "PARTICIPANT_GUIDE.md": "Participant guide",
     "FACILITATOR_GUIDE.md": "Facilitator guide",
-    "TESTING.MD": "Testing guide",
-    "README.md": "README",
-    "SETUP_CLOUDFLARE_DEPLOYMENT.md": "Deployment guide",
-    "SETUP_SUPABASE_DB.md": "Supabase setup",
-    "PLAN.md": "Project plan",
+    "TESTING_GUIDE.md": "Testing guide",
+    // "README.md": "README",
+    // "SETUP_CLOUDFLARE_DEPLOYMENT.md": "Deployment guide",
+    // "SETUP_SUPABASE_DB.md": "Supabase setup",
+    // "PLAN.md": "Project plan",
   };
 
   const params = new URLSearchParams(window.location.search);
@@ -67,7 +67,7 @@
   document.title = (titleOverride || ALLOWED[doc]) + " · Guide";
   titleEl.textContent = titleOverride || ALLOWED[doc];
   subEl.textContent = doc;
-  rawLink.href = doc;
+  rawLink.href = "guides/" + doc;
 
   // Helper used only for the error-path innerHTML above. Anywhere else
   // we lean on marked to render the markdown.
@@ -107,7 +107,7 @@
       // untrusted input. The .md files come from the project bundle.
     });
 
-    fetch(doc, {cache: "no-cache"})
+    fetch("guides/" + doc, {cache: "no-cache"})
       .then(function (r) {
         if (!r.ok) throw new Error("Fetch failed: " + r.status);
         return r.text();

@@ -45,10 +45,19 @@ Do **not** copy the `service_role` key. That key bypasses security and must neve
 
 ## 5. Paste them into `config.js`
 
-In this project folder, copy `config.example.js` to `config.js` and fill in:
+- Copy the and rename the configuration template file (`config.example.js`) from the `setup_resources/` directory to the `public/` directory and rename it to `config.js` in that folder. (i.e `cp setup_resources/config.example.js public/config.js`)
+- Update the new `public/config.js` with your actual Supabase credential which you got from Step #4 and and fill in these lines:
 
 ```js
-window.CONFIG = {SUPABASE_URL: "https://abcdefghijk.supabase.co", SUPABASE_ANON_KEY: "eyJhbGciOi..."};
+project_supabase_url = "https://YOUR-PROJECT-REF.supabase.co";
+project_supabase_anon_key = "YOUR-ANON-PUBLIC-KEY-HERE";
+```
+
+With your own project details, simiar to this:
+
+```js
+project_supabase_url = "https://abcdefghijk.supabase.co";
+project_supabase_anon_key = "eyJhbGciOi...";
 ```
 
 Save.

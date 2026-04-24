@@ -7,5 +7,8 @@
 //
 // DO NOT paste the service_role key here. That key bypasses
 // all security and is server-only.
+project_supabase_url = "https://YOUR-PROJECT-REF.supabase.co";
+project_supabase_anon_key = "YOUR-ANON-PUBLIC-KEY-HERE";
 
-window.CONFIG = {SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co", SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY-HERE"};
+// setting the config on window
+window.CONFIG = {SUPABASE_URL: project_supabase_url, SUPABASE_ANON_KEY: project_supabase_anon_key};

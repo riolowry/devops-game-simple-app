@@ -9,11 +9,14 @@ Prerequisites: Supabase backend is set up ([SETUP_SUPABASE_DB.md](SETUP_SUPABASE
 1. Sign in to the [Cloudflare dashboard](https://dash.cloudflare.com). Create a free account if you don't have one.
 2. Left sidebar: **Workers & Pages**.
 3. Click **Create** → **Pages** → **Upload assets**.
-4. Name the project, e.g. `devops-colouring`. The name becomes part of the URL: `devops-colouring.pages.dev`.
-5. Drag the entire project folder (or a zip of it) onto the upload area. Make sure `config.js` (not `config.example.js`) is included.
-6. Click **Deploy site**.
+4. Name the project, e.g. `devops-learning-game`. The name becomes part of the URL: `devops-learning-game.pages.dev`.
+5. Make sure you have already copied `setup_resources/config.example.js` to `public/config.js` in your local copy of this project and have updated `public/config.js` with your actual Supabase credentials which you got when you setup Supabase (see: steps #4 and #5 in [SETUP_SUPABASE_DB.md](SETUP_SUPABASE_DB.md)).
+6. In the Cloudflare interface: Select or drag the entire `public/` folder (or a zip of it) from your computer onto the upload area.
+7. Click **Deploy site**.
 
-Deployment takes under a minute. You get a URL like `https://devops-colouring.pages.dev`.
+Deployment takes under a minute. You get a URL like `https://devops-learning-game.pages.dev`.
+
+If you want to make local changes and redeploy: you can go to `Workers & Pages` > `your-project-name` (i.e.`devops-learning-game`) > `Deployments` tab and click the "New deployment" button on the top right, then select or drag the entire `public/` folder (or a zip of it) from your computer onto the upload area again and it will auto redeploy.
 
 ## Option 2: Wrangler CLI
 
@@ -22,7 +25,7 @@ If you prefer the command line:
 ```bash
 npm install -g wrangler
 wrangler login
-wrangler pages deploy ./ --project-name=devops-colouring
+wrangler pages deploy ./ --project-name=devops-learning-game
 ```
 
 Run from the project folder. Subsequent deploys overwrite the previous.
