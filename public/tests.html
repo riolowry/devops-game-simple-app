@@ -25,21 +25,6 @@
       [data-will-run="false"] {
         opacity: 0.45;
       }
-      /* High-visibility focus ring for keyboard users */
-      button:focus-visible,
-      a:focus-visible,
-      input:focus-visible,
-      select:focus-visible {
-        outline: 2px solid #4f46e5;
-        outline-offset: 2px;
-      }
-      /* Prefer reduced motion */
-      @media (prefers-reduced-motion: reduce) {
-        * {
-          transition: none !important;
-          animation: none !important;
-        }
-      }
     </style>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased p-4 sm:p-6">
@@ -91,10 +76,12 @@
               <span>ms</span>
             </label>
             <span class="text-slate-400" aria-hidden="true">|</span>
-            <a href="guide.html?doc=TESTING.MD" target="_blank" class="text-sky-600 underline">
+            <a href="guide.html?doc=TESTING_GUIDE.MD" target="_blank" class="text-sky-600 underline">
               Testing guide (rendered)
             </a>
-            <a href="TESTING.MD" target="_blank" class="text-slate-500 underline" title="Raw markdown source">raw</a>
+            <a href="TESTING_GUIDE.MD" target="_blank" class="text-slate-500 underline" title="Raw markdown source">
+              raw
+            </a>
           </div>
         </div>
       </header>

@@ -19,8 +19,7 @@
       document.body.innerHTML = `
         <div style="font-family: system-ui; max-width: 600px; margin: 4rem auto; padding: 1rem;">
           <h1>Configuration required</h1>
-          <p>Copy <code>config.example.js</code> to <code>config.js</code> and set your
-          Supabase URL and anon key. See <a href="SETUP_SUPABASE_DB.md">SETUP_SUPABASE_DB.md</a>.</p>
+          <p>Copy <code>setup_resources/config.example.js</code> to <code>public/config.js</code> and set your Supabase URL and anon key. See <a href="https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_SUPABASE_DB.md">setup_resources/SETUP_SUPABASE_DB.md</a> in the repository for more information.</p>
         </div>
       `;
     });

@@ -27,6 +27,38 @@ app.js                    shared application logic
 styles.css                small amount of supplemental CSS
 ```
 
+Project's directory structure:
+
+```
+devops-game-simple-app/
+├── .gitignore                          ← You know, for git.
+├── README.md                           ← Overview, quick start (this file).
+├── LICENSE                             ← MIT License.
+│
+├── setup_resources/                    ← Initial setup instructions, templates, and schemas.
+│ ├── config.example.js                 ← copy to `config.js` in the `public/` folder, fill in actual credentials
+│ ├── schema.sql                        ← Postgres schema (run once in Supabase SQL editor)
+│ ├── SETUP_CLOUDFLARE_DEPLOYMENT.md    ← Cloudflare Pages setup and frontend deployment instructions (5 min).
+│ └── SETUP_SUPABASE_DB.md              ← Supabase cloud backend setup instructions (5 min).
+│
+└── public/                             ← Contains the files to deploy to Cloudflare.
+  ├── admin.html                        ← Current entry point for admin backend (restricted to facilitator(s) only), contains the facilitator facing admin views.
+  ├── app.js                            ← Main game logic is here.
+  ├── config.js                         ← Stores secrets! Don't commit to git!!
+  ├── guide.html                        ← Shows all user-facing markdown guides (user-facing means facilitator(s) and Participant(s)).
+  ├── guide.js                          ← Javascript to support `guide.html`.
+  ├── index.html                        ← Current entry point for app, contains the participant facing views.
+  ├── styles.css                        ← Supplemental CSS (I think it still needs: print, a11y, motion)
+  │
+  ├── guides/                           ← all the markdown guides
+  │ ├── FACILITATOR_GUIDE.md            ← pre-session and in-session playbook
+  │ ├── PARTICIPANT_GUIDE.md            ← what participants see
+  │ └── TESTING_GUIDE.md                ← how to run tests, smoke, stress, self-test
+  │
+  ├── tests.html                      ← Testing page to run all tests from the browser (also contains UX views for running test, export, etc)
+  └── tests.js                        ← Testing js to support all tests in tests.html
+```
+
 ## Quick start
 
 1. **Create the backend.** Follow [SETUP_SUPABASE_DB.md](SETUP_SUPABASE_DB.md). Takes about 5 minutes. You get a `SUPABASE_URL` and `SUPABASE_ANON_KEY`.

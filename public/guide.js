@@ -7,7 +7,7 @@
 //
 // Usage:
 //   guide.html?doc=PARTICIPANT_GUIDE.md
-//   guide.html?doc=TESTING.MD&title=Tester+manual
+//   guide.html?doc=TESTING_GUIDE.MD&title=Tester+manual
 // ----------------------------------------------------------------------
 (function () {
   "use strict";
