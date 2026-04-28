@@ -28,6 +28,22 @@
     }
   }
 
+  // Extract the in-bucket object path from a Supabase public URL,
+  // for use with supabase.storage.from(BUCKET).remove([path]).
+  // Public URLs look like
+  //   https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+  // so we just split on "/<bucket>/" and take the tail. Returns
+  // null if the URL is empty, foreign, or otherwise unparseable;
+  // callers treat null as "nothing to clean up."
+  function storagePathFromUrl(url) {
+    if (!url) return null;
+    const marker = "/" + STORAGE_BUCKET + "/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    const path = url.substring(idx + marker.length);
+    return path || null;
+  }
+
   window.App.actions = {
     // -------- ISSUE actions --------
     async createIssue({title, description_url, price, batch_size, acceptance_criteria, curated_url_id}) {
@@ -643,18 +659,120 @@
       return true;
     },
 
+    // Delete a task row and best-effort remove its uploaded image
+    // from storage. Permitted for any developer on the issue's
+    // team during in_progress, or for a real facilitator who is
+    // not currently simulating a participant. (Simulating
+    // facilitators inherit their simulated role's permissions via
+    // canAct, which keeps "simulate mode shows the participant
+    // experience" honest.)
     async deleteTask(task) {
       if (!this.user) return;
-      // Owner can delete only while task is claimed (not complete).
-      if (task.assignee_token !== this.user.token && !this.isFacilitator()) {
-        this.toast("You can only delete your own tasks.");
+      const parentIssue = this.issues.find((i) => i.id === task.parent_issue_id);
+      const allowed = (parentIssue && this.canAct(parentIssue, "delete_task")) || this.isFacilitatorView();
+      if (!allowed) {
+        this.toast("You can't delete this task.");
         return;
+      }
+      // Storage cleanup first, row delete second. If cleanup
+      // fails we still want the row gone (the user's intent),
+      // and an orphan object is harmless and recoverable later;
+      // the inverse order would risk a row pointing at a missing
+      // file if the row delete failed after we'd removed it.
+      const oldPath = storagePathFromUrl(task.attachment_url);
+      if (oldPath) {
+        const rm = await supabase.storage.from(STORAGE_BUCKET).remove([oldPath]);
+        if (rm.error) console.warn("deleteTask storage cleanup:", rm.error);
       }
       const {error} = await supabase.from("tasks").delete().eq("id", task.id);
       if (error) {
         console.error("deleteTask:", error);
         this.toast("Delete failed: " + error.message);
+        return;
       }
+      logEvent(this.user.token, task.parent_issue_id, "delete_task", this.gameState.current_sprint);
+    },
+
+    // Replace the image on an already-completed task without
+    // changing its status. Same permission scope as deleteTask
+    // (any team dev during in_progress, or a real facilitator).
+    // Used to recover from a wrong-image upload after the task
+    // has been marked complete; the original completeTask path
+    // only handles the first upload.
+    async replaceTaskImage(task, file) {
+      if (!this.user) return false;
+      const parentIssue = this.issues.find((i) => i.id === task.parent_issue_id);
+      const allowed =
+        (parentIssue && this.canAct(parentIssue, "replace_task_image")) || this.isFacilitatorView();
+      if (!allowed) {
+        this.toast("You can't replace this image.");
+        return false;
+      }
+      if (!(file instanceof File)) {
+        this.toast("Choose an image to replace with.");
+        return false;
+      }
+      if (!file.type.startsWith("image/")) {
+        this.toast("Please choose an image file.");
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        this.toast("Image is over 10 MB. Please choose a smaller file.");
+        return false;
+      }
+      this.toast("Uploading image...");
+      // Same path scheme as completeTask: sprint/issue/task tag
+      // plus a timestamp to avoid collisions with the previous
+      // upload (which we'll clean up below if the row update
+      // succeeds).
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const safeExt = ext || "png";
+      const filePath =
+        "sprint" +
+        this.gameState.current_sprint +
+        "_issue" +
+        task.parent_issue_id +
+        "_task" +
+        task.id +
+        "_" +
+        Date.now() +
+        "." +
+        safeExt;
+      const upload = await supabase.storage.from(STORAGE_BUCKET).upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
+      if (upload.error) {
+        console.error("replaceTaskImage upload:", upload.error);
+        this.toast("Image upload failed: " + upload.error.message);
+        return false;
+      }
+      const {data: pub} = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+      const newUrl = pub && pub.publicUrl ? pub.publicUrl : "";
+      if (!newUrl) {
+        this.toast("Could not resolve image URL after upload.");
+        return false;
+      }
+      // Order: update the row first, then remove the old object.
+      // If the row update fails the new file is the orphan and
+      // the task still points at the (still-valid) old image.
+      // If the storage remove fails afterwards we get a harmless
+      // orphan instead of a row pointing at a deleted file.
+      const oldPath = storagePathFromUrl(task.attachment_url);
+      const {error} = await supabase.from("tasks").update({attachment_url: newUrl}).eq("id", task.id);
+      if (error) {
+        console.error("replaceTaskImage DB update:", error);
+        this.toast("Update failed: " + error.message);
+        return false;
+      }
+      if (oldPath) {
+        const rm = await supabase.storage.from(STORAGE_BUCKET).remove([oldPath]);
+        if (rm.error) console.warn("replaceTaskImage storage cleanup:", rm.error);
+      }
+      logEvent(this.user.token, task.parent_issue_id, "replace_task_image", this.gameState.current_sprint);
+      this.toast("Image replaced.");
+      return true;
     },
 
     // -------- HACKER actions --------

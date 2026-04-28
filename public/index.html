@@ -671,7 +671,15 @@
                               <span class="px-2 py-0.5 rounded-full"
                                     :class="task.status === 'complete' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
                                     x-text="task.status"></span>
-                              <template x-if="task.status !== 'complete' && (task.assignee_token === $store.app.user.token || $store.app.isFacilitatorView())">
+                              <!-- Delete-task button. Visible to any developer
+                                   on the issue's team during in_progress
+                                   (canAct), and to a real facilitator. Note
+                                   the gate is intentionally not assignee-
+                                   scoped and intentionally does not check
+                                   task.status, so any team dev can recover
+                                   from a teammate's mistaken upload after
+                                   the task has been marked complete. -->
+                              <template x-if="$store.app.canAct(openIssue, 'delete_task') || $store.app.isFacilitatorView()">
                                 <button @click="if (confirm('Delete task?')) $store.app.deleteTask(task)"
                                         class="text-rose-600 hover:text-rose-800 text-base leading-none px-1"
                                         title="Delete this task">&times;</button>
@@ -687,6 +695,109 @@
                                    alt="Task attachment"
                                    class="max-h-48 max-w-full rounded border border-slate-200" />
                             </a>
+                          </template>
+
+                          <!-- Replace image: shown for completed tasks when the
+                               viewer is a team developer on an in_progress issue
+                               (any team dev, not just the assignee) or a real
+                               facilitator. Same drag-drop + click-to-browse
+                               pattern as the original uploader, but it calls
+                               replaceTaskImage and does not change task status. -->
+                          <template x-if="task.status === 'complete' && task.attachment_url && ($store.app.canAct(openIssue, 'replace_task_image') || $store.app.isFacilitatorView())">
+                            <div class="mt-3"
+                                 x-data="{
+                                   localFile: null,
+                                   localPreview: null,
+                                   isDragging: false,
+                                   isUploading: false,
+                                   showPicker: false,
+                                   pickFile(file) {
+                                     if (!file) return;
+                                     if (!file.type || !file.type.startsWith('image/')) {
+                                       $store.app.toast('Please choose an image file.');
+                                       return;
+                                     }
+                                     if (file.size > 10 * 1024 * 1024) {
+                                       $store.app.toast('Image is over 10 MB. Please choose a smaller file.');
+                                       return;
+                                     }
+                                     if (this.localPreview) URL.revokeObjectURL(this.localPreview);
+                                     this.localFile = file;
+                                     this.localPreview = URL.createObjectURL(file);
+                                   },
+                                   clearFile() {
+                                     if (this.localPreview) URL.revokeObjectURL(this.localPreview);
+                                     this.localFile = null;
+                                     this.localPreview = null;
+                                   }
+                                 }">
+                              <template x-if="!showPicker">
+                                <button type="button"
+                                        @click="showPicker = true"
+                                        class="text-xs text-sky-700 hover:text-sky-900 underline">
+                                  Replace image
+                                </button>
+                              </template>
+                              <template x-if="showPicker">
+                                <div>
+                                  <label
+                                    class="block border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors text-center"
+                                    :class="isDragging ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'"
+                                    @dragover.prevent="isDragging = true"
+                                    @dragenter.prevent="isDragging = true"
+                                    @dragleave.prevent="isDragging = false"
+                                    @drop.prevent="isDragging = false; if ($event.dataTransfer && $event.dataTransfer.files && $event.dataTransfer.files[0]) pickFile($event.dataTransfer.files[0]);">
+                                    <template x-if="!localFile">
+                                      <div class="text-sm text-slate-600 py-2 pointer-events-none">
+                                        <div class="font-medium text-slate-700 mb-1">
+                                          Drop a replacement image, or
+                                          <span class="text-sky-600 underline">click to browse</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500">PNG, JPG, GIF, WebP, HEIC. Up to 10 MB.</div>
+                                      </div>
+                                    </template>
+                                    <template x-if="localFile">
+                                      <div class="flex items-center gap-3 text-left">
+                                        <img :src="localPreview"
+                                             alt="Selected image preview"
+                                             class="w-16 h-16 object-cover rounded border border-slate-200 flex-shrink-0" />
+                                        <div class="min-w-0 flex-1">
+                                          <div class="text-sm font-medium text-slate-800 truncate" x-text="localFile.name"></div>
+                                          <div class="text-xs text-slate-500"
+                                               x-text="(localFile.size / 1024).toFixed(0) + ' KB'"></div>
+                                        </div>
+                                        <button type="button"
+                                                @click.prevent.stop="clearFile()"
+                                                class="px-2 py-1 text-xs text-slate-600 hover:text-rose-700 underline flex-shrink-0"
+                                                aria-label="Remove selected file">Remove</button>
+                                      </div>
+                                    </template>
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           aria-label="Choose replacement image file"
+                                           @change="pickFile($event.target.files && $event.target.files[0]); $event.target.value = '';" />
+                                  </label>
+                                  <div class="mt-2 flex items-center gap-2">
+                                    <template x-if="localFile">
+                                      <button type="button"
+                                              :disabled="isUploading"
+                                              @click="
+                                                isUploading = true;
+                                                const ok = await $store.app.replaceTaskImage(task, localFile);
+                                                isUploading = false;
+                                                if (ok) {clearFile(); showPicker = false;}
+                                              "
+                                              class="px-4 py-2 bg-sky-600 text-white text-sm font-medium rounded hover:bg-sky-700 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span x-show="!isUploading">Upload replacement</span>
+                                        <span x-show="isUploading">Uploading...</span>
+                                      </button>
+                                    </template>
+                                    <button type="button"
+                                            @click="clearFile(); showPicker = false;"
+                                            class="px-3 py-2 text-sm text-slate-600 hover:text-slate-800 underline">Cancel</button>
+                                  </div>
+                                </div>
+                              </template>
+                            </div>
                           </template>
 
                           <!-- Drag-drop + click-to-browse uploader. Only the task

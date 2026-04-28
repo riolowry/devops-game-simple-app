@@ -212,6 +212,22 @@
       case "add_task":
         return role === "developer" && s === "in_progress" && !!issue.team && issue.team === team;
 
+      case "delete_task":
+      case "edit_task":
+      case "replace_task_image":
+        // Team-scoped: any developer on the issue's team while the
+        // parent issue is in_progress. Not assignee-scoped: the
+        // team owns its tasks collectively, so any team dev can
+        // recover from a teammate's mistake. Task status (claimed
+        // vs complete) is intentionally not part of this rule.
+        //
+        // Note: edit_task is wired into the permission table for
+        // forward compatibility (sprint 3 containerized-flag toggle
+        // per the original spec) but has no UI caller yet. Safe to
+        // ignore until that UI is built; remove this note once it
+        // is.
+        return role === "developer" && s === "in_progress" && !!issue.team && issue.team === team;
+
       case "send_to_testing":
         return role === "developer" && s === "in_progress" && issue.team === team && batchGateOpen(issue, tasks);
 
