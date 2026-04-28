@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leaderboard · ITS DevSecOps Adventure</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="leaderboard.js" defer></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <header class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold" id="session-label">DevSecOps Adventure</h1>
+          <p class="text-sm text-slate-600">
+            <span id="current-sprint">Sprint 1</span>
+            <span class="mx-2 text-slate-300">·</span>
+            Live Leaderboard
+          </p>
+        </div>
+        <nav class="flex items-center gap-4 text-sm">
+          <a href="index.html" class="text-sky-600 hover:underline">Board</a>
+          <a href="guide.html" class="text-sky-600 hover:underline">Guide</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="leaderboard-content" class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+          <h2 class="text-lg font-semibold">Teams</h2>
+          <p class="text-xs text-slate-500">Ordered by total earned (Accepted price total).</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+              <tr>
+                <th class="py-2 px-3 text-left">#</th>
+                <th class="py-2 px-3 text-left">Team</th>
+                <th class="py-2 px-3 text-right">Accepted</th>
+                <th class="py-2 px-3 text-right">In Pipeline</th>
+                <th class="py-2 px-3 text-right">Earned</th>
+              </tr>
+            </thead>
+            <tbody id="team-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+          <h2 class="text-lg font-semibold">Individuals</h2>
+          <p class="text-xs text-slate-500">Cards Touched counts unique cards each user changed state on.</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+              <tr>
+                <th class="py-2 px-3 text-left">#</th>
+                <th class="py-2 px-3 text-left">Token</th>
+                <th class="py-2 px-3 text-left">Name</th>
+                <th class="py-2 px-3 text-left">Role</th>
+                <th class="py-2 px-3 text-left">Team</th>
+                <th class="py-2 px-3 text-right">Tasks Done</th>
+                <th class="py-2 px-3 text-right">Cards Touched</th>
+              </tr>
+            </thead>
+            <tbody id="individual-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

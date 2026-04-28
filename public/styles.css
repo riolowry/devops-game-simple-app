@@ -127,3 +127,12 @@ textarea:focus-visible,
     scroll-behavior: auto !important;
   }
 }
+
+/* v2 additions */
+.facilitator-frame {
+  background-color: #fef3c7;
+  border-top: 2px solid #fbbf24;
+}
+.comment-rejection {
+  border-left: 4px solid #dc2626;
+}

@@ -1,161 +1,56 @@
-# Facilitator guide
+# Facilitator Guide
 
-Everything you need to run a session, in order of when you need it.
+This guide covers running an ITS DevSecOps Adventure session end to end. For setup, see [setup_resources/SETUP_SUPABASE_DB.md](https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_SUPABASE_DB.md) and [setup_resources/SETUP_CLOUDFLARE_DEPLOYMENT.md](https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_CLOUDFLARE_DEPLOYMENT.md).
 
-## Before the session (the day before)
+## Pre-session
 
-### 1. Wake the Supabase project
+1. Spin up a Supabase project (free tier is enough). Copy `setup_resources/config.example.js` to `public/config.js` and fill in URL and publishable key.
+2. Open the SQL editor and paste the entire `setup_resources/schema.sql`. Run it. Confirm no errors.
+3. Deploy the `public/` folder. Cloudflare Pages or any static host works. For a local dry run: `python3 -m http.server` from the `public/` directory.
+4. Open `admin.html` in your browser. Sign in with `FACIL1` (the seed token).
+5. **Users tab**: bulk-add your participants. Format: `Name, role, team`, one per line. Tokens are auto-generated; copy them out for distribution.
+6. **Curated URLs tab**: confirm 20 default rows. Add or edit as desired. Use **Reset to defaults** to restore.
+7. **Settings tab**: set session label, flaw rate (default 25%), and Sprint 3 toggles (CI/CD bypass and role swap default on).
 
-If you set up Supabase more than a day ago, the free-tier project has probably paused. Open your app URL in a browser. The first request takes 30 to 60 seconds; subsequent pages load instantly. Do this the day before to avoid a cold start during the session.
+## Session flow
 
-### 2. Log in as facilitator
+- **Kickoff** (5 min): show participants the board on a projected screen. Introduce the columns. Hand out tokens.
+- **Sprint 1 - Build** (15-20 min): Business creates 4 to 8 cards. Teams work through Market → Accepted. Watch for confused Testers (they verify deliverables, not Acceptance Criteria) and idle Security (random flaws will give them work).
+- **Sprint advance to 2**: in admin Users tab, promote one participant per ~6 to **Hacker**. Open admin Sprint tab. Click **Advance sprint**. Cross-training is auto-assigned.
+- **Sprint 2 - Threat** (15-20 min): Hackers inject. Watch the hacker_log on admin Sprint tab for caught vs. leaked.
+- **Sprint advance to 3**: open admin Sprint tab. Click **Advance sprint**. Role swap fires (Tester→Developer, Security→SysAdmin). Cards from earlier sprints devalue.
+- **Sprint 3 - DevOps** (15-20 min): Developers can mark tasks containerized. Containerized cards skip the pipeline. Hackers can stop containers in production.
+- **Retrospective** (15 min): export full state JSON from the admin Data tab. Review the leaderboard, the hacker_log, and the comment threads.
 
-Go to `your-site.pages.dev/admin.html` and enter your facilitator token (default `FACIL1`, or whatever you changed it to).
+## Mid-session controls
 
-### 3. Set the session label
+- **Simulate as**: from the participant board (`index.html`) signed in as facilitator, the bottom bar lets you act as any role on any team. Useful for unblocking a stuck card.
+- **Edit users mid-session**: the Users tab is edit-in-place. Change someone's role or team without affecting the data.
+- **Hide comments**: the Comments tab lets you soft-hide individual comments (reversible). Use for off-color comments. Hard delete is also available.
+- **Reset issues & tasks**: clears all cards and history. Keeps users, teams, curated URLs, settings.
 
-**Config tab** → update **Session label** to something participants will see in the header, e.g. `CPSC 3720 Fall 2026` or `DevOpsDays Calgary tutorial`.
+## The Clarifications column
 
-### 4. Generate participant tokens
+This is where the two real-world flows live. Both look similar at a glance but mean different things — point this out to participants on the first card that lands here:
 
-**Users tab** → **Bulk create**. Paste a list like:
+- **Rejection** (rose `REJECTION → Developer / Team A` pill): a Tester / Security / Business person rejected the work. Targeted dev clicks **Pick up for rework**; card moves to **In Progress** for the dev to fix. The rejection reason is the comment in the red banner at the top.
+- **Question** (blue `QUESTION → Business` pill): someone asked the targeted role/team a question. Target clicks **Send response**, writes their answer; card returns to whichever column the asker was in. The question is the comment in the blue banner.
 
-```
-Alice, business,
-Bob, developer, Team 1
-Carol, developer, Team 1
-Dan, developer, Team 1
-Eve, tester, Team 1
-Frank, developer, Team 2
-Grace, developer, Team 2
-Harry, developer, Team 2
-Iris, tester, Team 2
-Jack, security,
-Kate, release,
-```
+A common pedagogical moment in Sprint 2: a dev gets rejected and the reason is unclear. Show them they don't have to guess — they can click **Ask a question** while in the rejection clarification, target the rejecter back, ask for clarification, and `pre_clarification_status` stays as `'in_progress'` so they still resume rework after the answer.
 
-The commas matter. Empty positions are fine.
+## Troubleshooting
 
-**Suggested role distribution for 20 participants:**
+- **Participants see nothing**: check the connection dot in their header. If amber, realtime is down and the app polls every 3s.
+- **Card stuck in Clarifications**: open the admin **Board** tab to see who's targeted. If a participant left, you can simulate as that role/team via the bottom bar and pick up or answer on their behalf, or edit the issue's target via the Cards admin tab.
+- **Card came back to the wrong column after answer**: check `pre_clarification_status` on the issue. For rejections it must be `'in_progress'`; for questions it should be the asker's actual column. The app sets these correctly; if you see a mismatch on a card from a previous deployment, run the in-place migration in `SETUP_SUPABASE_DB.md`.
+- **Hacker won't promote**: facilitators cannot be hackers. Use a different participant token.
+- **Image upload fails**: check the Supabase storage bucket policies. The schema.sql sets them, but a manual project may have overridden them.
 
-- 2 Business (or 1 Business + 1 Observer as a watcher)
-- 2 teams of 3 to 4 Developers each
-- 1 Tester per team
-- 1 or 2 Security
-- 1 Release
+## Reset between sessions
 
-Generated tokens appear in a yellow "New tokens" box at the top. **Print this page or copy the tokens now** (they remain in the All tokens table but mixing them up is easy).
+- **Reset issues & tasks**: same users, same teams, fresh cards.
+- **Reset everything**: nuke. Keeps only your facilitator user. Wipes the storage bucket too.
 
-### 5. Prepare handouts
+## Export
 
-Print a card for each participant showing:
-
-- Their token
-- Their role
-- Their team (if any)
-- The app URL
-
-Keep a master list (the CSV you just created) so you know who has which token, especially once you start promoting Hackers.
-
-### 6. Decide Hacker candidates
-
-Do not promote them yet. Just mentally pick one or two participants who will become Hackers at Sprint 2. Any participant role is eligible (Business, Developer, Tester, Security, Release, Observer), and a non-Developer hacker is often more interesting for the exercise. Ideally pick participants who will enjoy the role and not give it away.
-
-## At session start
-
-### 1. Project the board
-
-On the main screen, open `admin.html` → **Board tab** for a facilitator-eye view, or use a second browser/tab with `index.html` logged in as an Observer role.
-
-### 2. Distribute tokens
-
-Hand out the printed cards. Each participant gets one.
-
-### 3. Walk through the rules
-
-Three minutes, tops. Participants read the details in the Help tab inside the app. Key points:
-
-- Each role owns one column of the board.
-- Business creates Product Requests; Developers do the colouring; Testers visually check; Security runs a Security Check; Release deploys.
-- Use [online-coloring.com](https://www.online-coloring.com) for the colouring. When a page is finished, save or screenshot it (or photograph paper colouring) and either drop it onto the dashed upload area on the Task, or click that area to browse. The app handles the upload; no imgur or postimg account needed.
-- Three sprints. Each one works slightly differently. You will tell them how.
-
-### 4. Start Sprint 1
-
-Sprint 1 is Waterfall. Everyone stays strictly in their own column. Business should create several Product Requests to fill the Market column. Give this sprint 15 to 20 minutes. The point is for participants to feel the pain of strict silos and handoff bottlenecks.
-
-## Sprint transitions
-
-### Sprint 1 to Sprint 2
-
-1. Announce you are switching to Agile. Silos are relaxed: Developers can now help test, Testers can flag security concerns, etc. In the app this is documented but not enforced, so it is mostly a cultural shift.
-2. Privately approach your Hacker candidate(s). Tell them they are the Hacker for this sprint. Their job is to inject flaws into any item in the active pipeline (In Progress, Testing, Security, or To Deploy) on any team, by opening the card and clicking **Inject Flaw**. Security's job is to catch these before they reach Production.
-3. Back at the admin panel: **Sprint tab** → find the candidate in the **Eligible participants** list → **Make Hacker**. Any role is promotable (not just Developers). Their prior role is recorded and restored on demote. Their token works exactly the same.
-4. Click **Advance Sprint**.
-5. Run Sprint 2 for 20 to 25 minutes.
-
-Watch the **Hacker Log** tab during the sprint. Injections appear in real time.
-
-### Sprint 2 to Sprint 3
-
-1. Announce CI/CD and Containers. Developers can now mark their Tasks as Containerized when they create them. Containerized Tasks cannot be tampered with by the Hacker.
-2. **Sprint tab** → **Advance Sprint**.
-3. Optionally: **Config tab** → raise **Security modulus** to 11 (fewer deterministic flaws, more pressure on catching hacker injections). Leave **Sprint 3 auto-advance** at 0 for a first run.
-4. Run Sprint 3 for 20 minutes.
-
-Expected observation: Containerized items flow through safely. Non-containerized items still get injected. Participants should infer the defensive value of containers without being told.
-
-## During each sprint
-
-- The **Board tab** shows the global view. `[!]` markers reveal which items have been hacked (invisible to everyone else). Do not project this view; use it only for your own monitoring.
-- **Hacker Log** shows attempts and outcomes.
-- If a Developer gets stuck, use the card detail modal in an incognito window logged in as another role to unstick them. Or use the admin reset if things really go sideways.
-
-## Common situations
-
-**"I lost my token."** Admin panel → Users tab. Create a new token with the same role and team, delete the old one. Hand the new token to the participant.
-
-**"I accidentally rejected something."** The rejecting role tells the Developer, who picks it back up from Feedback or In Progress and continues. This is fine; the workflow tolerates it.
-
-**"The board isn't updating."** Check the connection indicator in the header. Green means realtime, yellow means polling (3 second latency, acceptable), red means offline. If red, check the Wi-Fi. Supabase going down is rare but possible; there is no offline mode.
-
-**"A participant is seeing the old version of the UI after I redeployed."** This is a browser cache issue. The deployed `public/_headers` file already tells browsers to revalidate every request, so this should be rare. If it happens anyway, ask them to do a hard refresh: Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows. To verify which build a participant is on, ask them to open DevTools and look in the Console tab for a line that reads `[devsec] app.js loaded (drop-zone uploader build)`. If that line is missing, they are on an older build and a hard refresh will fix it.
-
-**Someone figured out the Hacker via DevTools.** Teachable moment. In real life, pipeline security has to assume insider threats exist. Acknowledge it and continue.
-
-## After the session
-
-### 1. Retrospective
-
-Open the **Hacker Log tab** and project it. Walk through:
-
-- How many injections happened per sprint?
-- How many did Security catch?
-- How many leaked to Production?
-- Did containerization visibly reduce the attack surface in Sprint 3?
-
-Also open **Export tab** and download the JSON. Keep it for post-course reflection or research.
-
-### 2. Reset
-
-- For a repeat session with the same participants: **Reset tab** → **Reset Issues and Tasks**. Keeps users; wipes the board. Image files in storage stay (they will be cleaned on the next full reset).
-- For a fresh class: **Reset tab** → **Reset Everything**. Wipes all users except your facilitator token, all issues and tasks, the hacker log, and every image in the `task-images` storage bucket. This is the action that keeps the project safely under the 1 GB free-tier storage cap between sessions.
-
-### 3. Shut down (optional)
-
-You can leave the Supabase project running. The free tier has no ongoing costs. It will pause after 7 days of inactivity; the next visit wakes it.
-
-## Cheat sheet
-
-| Situation                   | Where to go                                               |
-| --------------------------- | --------------------------------------------------------- |
-| Make tokens                 | Admin → Users                                             |
-| Bulk import a roster        | Admin → Users → Bulk create                               |
-| Promote a Hacker            | Admin → Sprint → Eligible participants list → Make Hacker |
-| Advance the sprint          | Admin → Sprint → Advance Sprint                           |
-| Tune flaw rate              | Admin → Config → Security modulus                         |
-| Watch hacker activity       | Admin → Log                                               |
-| See all hacked items        | Admin → Board (look for `[!]`)                            |
-| Export for retro            | Admin → Export                                            |
-| Clear the board, keep users | Admin → Reset → Reset Issues and Tasks                    |
-| Clear everything            | Admin → Reset → Reset Everything                          |
+Use **Download full state JSON** for the retrospective. The export contains every table including comment thread, hacker log, and event log.

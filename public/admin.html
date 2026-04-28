@@ -2,36 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin · ITS DevSecOps Adventure</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="app.core.js"></script>
+    <script src="app.logic.js"></script>
+    <script src="app.store.js"></script>
+    <script src="app.actions.js"></script>
+    <script src="app.admin.js"></script>
+    <script src="app.boot.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
   </head>
 
   <body class="bg-slate-50 text-slate-900 antialiased" x-data x-init="$store.app.init()">
     <!-- LOGIN -->
-    <template x-if="!$store.app.user || !$store.app.isFacilitator()">
+    <template x-if="!$store.app.user || $store.app.user.role !== 'facilitator'">
       <div class="min-h-screen flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-          <h1 class="text-2xl font-bold">Facilitator login</h1>
-          <p class="text-slate-600 mt-2 text-sm">
-            Enter your facilitator token. On first setup, the default token is
-            <span class="font-mono bg-slate-100 px-1">FACIL1</span>
-            .
-          </p>
-          <form
-            class="mt-6 space-y-4"
-            @submit.prevent="(async () => {
-                const ok = await $store.app.login($refs.tokenInput.value);
-                if (ok && !$store.app.isFacilitator()) {
-                  $store.app.loginError = 'Token is not a facilitator.';
-                  $store.app.logout();
-                }
-              })()">
+          <h1 class="text-2xl font-bold">Admin / Facilitator</h1>
+          <p class="text-slate-600 mt-2 text-sm">Enter your facilitator token.</p>
+          <form class="mt-6 space-y-4" @submit.prevent="$store.app.login($refs.tokenInput.value)">
             <input
               x-ref="tokenInput"
               type="text"
@@ -40,491 +33,99 @@
               spellcheck="false"
               placeholder="FACIL1"
               class="w-full uppercase tracking-widest font-mono text-lg px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" />
-            <button
-              type="submit"
-              class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 min-h-[44px]">
-              Enter
+            <button type="submit" class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800">
+              Sign in
             </button>
-            <p
-              x-show="$store.app.loginError"
-              x-text="$store.app.loginError"
-              class="text-sm text-rose-600 text-center"></p>
+            <p x-show="$store.app.loginError" x-text="$store.app.loginError" class="text-sm text-rose-600 text-center"></p>
+            <template x-if="$store.app.user && $store.app.user.role !== 'facilitator'">
+              <p class="text-xs text-rose-600 text-center">
+                You are signed in but not as a facilitator.
+                <button type="button" @click="$store.app.logout()" class="underline">Switch token</button>
+              </p>
+            </template>
           </form>
-          <div class="mt-8 pt-6 border-t border-slate-200 text-xs text-slate-500">
-            <a href="index.html" class="text-sky-600 underline">Back to participant view</a>
+          <div class="mt-6 text-xs text-slate-500">
+            <a href="index.html" class="text-sky-600 underline">← Participant board</a>
           </div>
         </div>
       </div>
     </template>
 
-    <!-- ADMIN PANEL -->
-    <template x-if="$store.app.user && $store.app.isFacilitator()">
-      <div
-        class="min-h-screen flex flex-col"
-        x-data="{
-           tab: 'users',
-           newUser: { display_name: '', role: 'developer', team: '' },
-           bulkText: '',
-           lastCreatedTokens: [],
-           configDraft: null
-         }"
-        x-effect="
-           if (!configDraft && $store.app.gameStateLoaded) {
-             configDraft = {
-               session_label: $store.app.gameState.session_label,
-               security_modulus: $store.app.gameState.security_modulus,
-               hacker_count: $store.app.gameState.hacker_count,
-               sprint3_auto_advance_seconds: $store.app.gameState.sprint3_auto_advance_seconds
-             };
-           }
-         ">
-        <!-- Header -->
-        <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
-          <div class="px-3 sm:px-6 py-3 flex items-center gap-3">
-            <div class="flex-1 min-w-0">
-              <div class="text-xs text-slate-500">Facilitator console</div>
-              <h1 class="font-bold text-base sm:text-lg truncate" x-text="$store.app.gameState.session_label"></h1>
-            </div>
-            <span
-              class="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full"
-              x-text="'Sprint ' + $store.app.gameState.current_sprint"></span>
-            <a
-              href="guide.html?doc=FACILITATOR_GUIDE.md"
-              target="_blank"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] flex items-center"
-              title="Open the facilitator guide and other project docs in a new tab">
-              Guides
-            </a>
-            <a
-              href="index.html"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] flex items-center">
-              Board
-            </a>
-            <button
-              @click="$store.app.logout()"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px]">
-              Exit
-            </button>
+    <!-- ADMIN BODY -->
+    <template x-if="$store.app.user && $store.app.user.role === 'facilitator'">
+      <div class="min-h-screen flex flex-col" x-data="{tab: 'overview', userDraft: null, teamDraft: null, urlDraft: null, cardDraft: null, bulkText: '', confirmReset: false, confirmEverything: false}">
+        <header class="bg-white border-b border-slate-200">
+          <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+            <h1 class="font-bold flex-1">Admin · <span x-text="$store.app.gameState.session_label"></span></h1>
+            <span class="text-xs text-slate-500" x-text="'Sprint ' + $store.app.gameState.current_sprint"></span>
+            <a href="index.html" class="text-sm text-sky-600 hover:underline">Board</a>
+            <a href="leaderboard.html" target="_blank" rel="noopener" class="text-sm text-sky-600 hover:underline">Leaderboard</a>
+            <a href="tests.html" target="_blank" rel="noopener" class="text-sm text-sky-600 hover:underline">Tests</a>
+            <button @click="$store.app.logout()" class="text-sm px-3 py-1 border border-slate-300 rounded hover:bg-slate-50">Sign out</button>
           </div>
-
-          <!-- Tab bar (horizontal on sm+, scrollable on mobile) -->
-          <nav class="flex gap-1 px-3 sm:px-6 pb-2 overflow-x-auto text-sm">
-            <template x-for="t in ['users', 'sprint', 'config', 'log', 'board', 'reset', 'export']" :key="t">
-              <button
-                @click="tab = t"
-                :class="tab === t ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
-                class="whitespace-nowrap px-3 py-1.5 rounded-full capitalize min-h-[40px]"
-                x-text="t"></button>
+          <nav class="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto text-sm">
+            <template x-for="t in ['overview', 'board', 'users', 'teams', 'cards', 'sprint', 'settings', 'urls', 'comments', 'log', 'data']" :key="t">
+              <button @click="tab = t"
+                      :class="tab === t ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                      class="px-3 py-2 border-b-2 capitalize whitespace-nowrap"
+                      x-text="t"></button>
             </template>
           </nav>
         </header>
 
-        <main class="flex-1 p-3 sm:p-6 max-w-6xl w-full mx-auto">
-          <!-- ============================================================
-             USERS TAB
-             ============================================================ -->
-          <section x-show="tab === 'users'" class="space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-3">Create a token</h2>
-              <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <input
-                  x-model="newUser.display_name"
-                  placeholder="Name (optional)"
-                  class="px-3 py-2 border border-slate-300 rounded-lg" />
-                <select x-model="newUser.role" class="px-3 py-2 border border-slate-300 rounded-lg">
-                  <option value="business">Business</option>
-                  <option value="developer">Developer</option>
-                  <option value="tester">Tester</option>
-                  <option value="security">Security</option>
-                  <option value="release">Release</option>
-                  <option value="observer">Observer (read-only)</option>
-                  <option value="facilitator">Facilitator</option>
-                </select>
-                <input
-                  x-model="newUser.team"
-                  placeholder="Team (e.g. Team 1)"
-                  class="px-3 py-2 border border-slate-300 rounded-lg" />
-                <button
-                  @click="(async () => {
-                        const t = await $store.app.createUser(newUser);
-                        if (t) {
-                          lastCreatedTokens = [{ token: t, ...newUser }];
-                          newUser = { display_name: '', role: 'developer', team: '' };
-                        }
-                      })()"
-                  class="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]">
-                  Generate
-                </button>
+        <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-6 space-y-6">
+          <!-- OVERVIEW -->
+          <section x-show="tab === 'overview'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Users</div>
+              <div class="text-2xl font-semibold" x-text="$store.app.users.length"></div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Teams</div>
+              <div class="text-2xl font-semibold" x-text="$store.app.teams.length"></div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Issues</div>
+              <div class="text-2xl font-semibold" x-text="$store.app.issues.length"></div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Hacker Log</div>
+              <div class="text-2xl font-semibold" x-text="$store.app.hackerLog.length"></div>
+              <div class="text-xs text-slate-500 mt-1">
+                Caught: <span x-text="$store.app.hackerStats().caught"></span>,
+                Leaked: <span x-text="$store.app.hackerStats().leaked"></span>,
+                Stops: <span x-text="$store.app.hackerStats().stops"></span>
               </div>
             </div>
-
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-3">Bulk create</h2>
-              <p class="text-sm text-slate-600 mb-2">
-                One per line. Format:
-                <code>name, role, team</code>
-                (name and team optional). Valid roles:
-                <code>business</code>
-                ,
-                <code>developer</code>
-                ,
-                <code>tester</code>
-                ,
-                <code>security</code>
-                ,
-                <code>release</code>
-                ,
-                <code>observer</code>
-                ,
-                <code>facilitator</code>
-                . Teams may be assigned to any role. Role case does not matter (lowercased automatically).
-              </p>
-              <textarea
-                x-model="bulkText"
-                rows="6"
-                placeholder="Alice, business,&#10;Bob, developer, Team 1&#10;Carol, developer, Team 1&#10;Dan, tester,&#10;..."
-                class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm"></textarea>
-              <button
-                @click="(async () => {
-                      const rows = bulkText.split('\n')
-                        .map(l => l.trim()).filter(Boolean)
-                        .map(l => {
-                          const parts = l.split(',').map(x => x.trim());
-                          return {
-                            display_name: parts[0] || null,
-                            role: (parts[1] || 'developer').toLowerCase(),
-                            team: parts[2] || null
-                          };
-                        });
-                      if (rows.length === 0) return;
-                      const created = await $store.app.createUsersBulk(rows);
-                      if (created && created.length > 0) {
-                        lastCreatedTokens = created;
-                        bulkText = '';
-                      }
-                    })()"
-                class="mt-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]">
-                Create all
-              </button>
-            </div>
-
-            <!-- Just-created tokens, printable -->
-            <template x-if="lastCreatedTokens.length > 0">
-              <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-6">
-                <h3 class="font-bold mb-3">New tokens (print or copy now)</h3>
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead class="text-left text-slate-600">
-                      <tr>
-                        <th class="py-1 pr-3">Token</th>
-                        <th class="py-1 pr-3">Name</th>
-                        <th class="py-1 pr-3">Role</th>
-                        <th class="py-1 pr-3">Team</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="u in lastCreatedTokens" :key="u.token">
-                        <tr class="border-t border-amber-200">
-                          <td class="py-1 pr-3 font-mono font-bold" x-text="u.token"></td>
-                          <td class="py-1 pr-3" x-text="u.display_name || '.'"></td>
-                          <td class="py-1 pr-3 capitalize" x-text="u.role"></td>
-                          <td class="py-1 pr-3" x-text="u.team || ''"></td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-                <button @click="lastCreatedTokens = []" class="mt-3 text-sm text-slate-600 underline">Dismiss</button>
-              </div>
-            </template>
-
-            <!-- Full user list -->
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <div class="flex items-center justify-between mb-3">
-                <h2 class="text-lg font-bold">All tokens</h2>
-                <span class="text-sm text-slate-500" x-text="$store.app.users.length + ' total'"></span>
-              </div>
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead class="text-left text-slate-600">
-                    <tr>
-                      <th class="py-2 pr-3">Token</th>
-                      <th class="py-2 pr-3">Name</th>
-                      <th class="py-2 pr-3">Role</th>
-                      <th class="py-2 pr-3">Team</th>
-                      <th class="py-2 pr-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="u in $store.app.users" :key="u.token">
-                      <tr class="border-t border-slate-200">
-                        <td class="py-2 pr-3 font-mono" x-text="u.token"></td>
-                        <td class="py-2 pr-3" x-text="u.display_name || ''"></td>
-                        <td class="py-2 pr-3 capitalize" x-text="u.role"></td>
-                        <td class="py-2 pr-3" x-text="u.team || ''"></td>
-                        <td class="py-2 pr-3">
-                          <button
-                            @click="if (confirm('Delete token ' + u.token + '?')) $store.app.deleteUser(u.token)"
-                            class="text-rose-600 hover:underline text-xs">
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <!-- ============================================================
-             SPRINT TAB (with Hacker promotion)
-             ============================================================ -->
-          <section x-show="tab === 'sprint'" class="space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-2">Current sprint</h2>
-              <div class="text-4xl font-bold" x-text="'Sprint ' + $store.app.gameState.current_sprint"></div>
-              <div class="text-sm text-slate-600 mt-1">
-                <template x-if="$store.app.gameState.current_sprint === 1">
-                  <span>Waterfall. Strict silos. Hacker inactive.</span>
-                </template>
-                <template x-if="$store.app.gameState.current_sprint === 2">
-                  <span>
-                    Agile with security failures. Hacker active on any pipeline item (in progress through to deploy),
-                    regardless of team. Promote participants below.
-                  </span>
-                </template>
-                <template x-if="$store.app.gameState.current_sprint === 3">
-                  <span>
-                    CI/CD and Containers. Developers may containerize Tasks; containerized items block hacker injection.
-                    Everything else remains hackable.
-                  </span>
-                </template>
-              </div>
-              <div class="mt-4 flex flex-wrap gap-2">
-                <button
-                  @click="if (confirm('Advance to Sprint ' + ($store.app.gameState.current_sprint + 1) + '?')) $store.app.advanceSprint()"
-                  :disabled="$store.app.gameState.current_sprint >= 3"
-                  class="px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed">
-                  Advance Sprint
-                </button>
-                <button
-                  @click="if (confirm('Reset to Sprint 1? This does not delete issues.')) $store.app.resetSprint()"
-                  class="px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[44px]">
-                  Reset to Sprint 1
-                </button>
-              </div>
-            </div>
-
-            <!-- Hacker management -->
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <div class="flex items-baseline justify-between mb-2">
-                <h2 class="text-lg font-bold">Hacker assignment</h2>
-                <span
-                  class="text-sm text-slate-500"
-                  x-text="'Currently: ' + $store.app.users.filter(u => u.role === 'hacker').length + ' hacker(s)'"></span>
-              </div>
-              <p class="text-sm text-slate-600 mb-3">
-                In Sprint 2 and 3 one or two participants secretly play as Hacker. They can inject flaws into any
-                pipeline item (in progress, testing, security review, or awaiting release), regardless of which team
-                owns it, unless the item is Containerized in Sprint 3. Tokens look the same as everyone else's. After
-                promoting someone, notify them privately (in person).
-              </p>
-
-              <h3 class="font-semibold text-sm mt-4 mb-2">Eligible participants (promote to Hacker)</h3>
-              <p class="text-xs text-slate-500 mb-2">
-                Any participant role can be promoted. Their previous role is recorded and restored on demote.
-              </p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <template
-                  x-for="u in $store.app.users.filter(u => ['business','developer','tester','security','release','observer'].includes(u.role))"
-                  :key="u.token">
-                  <div class="flex items-center justify-between p-2 border border-slate-200 rounded-lg">
-                    <div class="min-w-0">
-                      <div class="font-mono text-xs" x-text="u.token"></div>
-                      <div class="text-sm truncate">
-                        <span x-text="u.display_name || '.'"></span>
-                        <span
-                          class="text-slate-500 text-xs"
-                          x-text="' · ' + u.role + (u.team ? ' · ' + u.team : '')"></span>
-                      </div>
-                    </div>
-                    <button
-                      @click="if (confirm('Promote ' + u.token + ' (' + u.role + ') to Hacker? Notify them privately.')) $store.app.promoteToHacker(u.token)"
-                      class="ml-2 px-3 py-1.5 text-xs bg-slate-800 text-white rounded hover:bg-slate-900 min-h-[36px]">
-                      Make Hacker
-                    </button>
+            <div class="bg-white rounded-xl border border-slate-200 p-4 md:col-span-2 lg:col-span-4">
+              <div class="text-xs text-slate-500 mb-2">Issues by status</div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-sm">
+                <template x-for="s in $store.app.columnOrder()" :key="s">
+                  <div class="bg-slate-50 border border-slate-200 rounded p-2">
+                    <div class="text-xs text-slate-500" x-text="$store.app.columnLabel(s)"></div>
+                    <div class="font-semibold" x-text="$store.app.issuesInColumn(s).length"></div>
                   </div>
-                </template>
-              </div>
-
-              <h3 class="font-semibold text-sm mt-4 mb-2">Current Hackers</h3>
-              <div class="space-y-2">
-                <template x-for="u in $store.app.users.filter(u => u.role === 'hacker')" :key="u.token">
-                  <div class="flex items-center justify-between p-2 border border-rose-200 bg-rose-50 rounded-lg">
-                    <div>
-                      <span class="font-mono text-xs" x-text="u.token"></span>
-                      <span class="ml-2 text-sm" x-text="u.display_name || '.'"></span>
-                      <span
-                        class="ml-2 text-xs text-slate-500"
-                        x-text="(u.team ? u.team + ' · ' : '') + 'was ' + (u.previous_role || 'developer')"></span>
-                    </div>
-                    <button
-                      @click="if (confirm('Demote back to ' + (u.previous_role || 'developer') + '?')) $store.app.demoteHacker(u.token)"
-                      class="px-3 py-1.5 text-xs border border-slate-300 rounded hover:bg-white min-h-[36px]">
-                      Demote
-                    </button>
-                  </div>
-                </template>
-                <template x-if="$store.app.users.filter(u => u.role === 'hacker').length === 0">
-                  <div class="text-sm text-slate-500 italic">No hackers currently assigned.</div>
                 </template>
               </div>
             </div>
           </section>
 
-          <!-- ============================================================
-             CONFIG TAB
-             ============================================================ -->
-          <section x-show="tab === 'config'" class="space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-4">Session configuration</h2>
-              <template x-if="!configDraft">
-                <p class="text-sm text-slate-500 italic">Loading configuration…</p>
-              </template>
-              <div class="space-y-4" x-show="configDraft">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Session label</label>
-                  <input
-                    x-model="configDraft.session_label"
-                    type="text"
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-sm font-medium mb-1">Security modulus</label>
-                    <input
-                      x-model.number="configDraft.security_modulus"
-                      type="number"
-                      min="2"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                    <p class="text-xs text-slate-500 mt-1">
-                      Issue IDs divisible by this have a deterministic flaw. Default 7.
-                    </p>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1">Hacker count</label>
-                    <input
-                      x-model.number="configDraft.hacker_count"
-                      type="number"
-                      min="0"
-                      max="5"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                    <p class="text-xs text-slate-500 mt-1">
-                      Informational. Actual hackers are assigned from the Sprint tab.
-                    </p>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1">Sprint 3 auto-advance (sec)</label>
-                    <input
-                      x-model.number="configDraft.sprint3_auto_advance_seconds"
-                      type="number"
-                      min="0"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                    <p class="text-xs text-slate-500 mt-1">0 disables. Stretch goal, not yet enforced in UI.</p>
-                  </div>
-                </div>
-                <button
-                  @click="$store.app.updateGameState(configDraft)"
-                  class="px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]">
-                  Save configuration
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <!-- ============================================================
-             HACKER LOG TAB
-             ============================================================ -->
-          <section x-show="tab === 'log'" class="space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-4">Hacker activity log</h2>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                <div class="p-3 bg-slate-100 rounded-lg">
-                  <div class="text-2xl font-bold" x-text="$store.app.hackerStats().total"></div>
-                  <div class="text-xs text-slate-600">Injections</div>
-                </div>
-                <div class="p-3 bg-emerald-100 rounded-lg">
-                  <div class="text-2xl font-bold" x-text="$store.app.hackerStats().caught"></div>
-                  <div class="text-xs text-emerald-900">Caught by Security</div>
-                </div>
-                <div class="p-3 bg-rose-100 rounded-lg">
-                  <div class="text-2xl font-bold" x-text="$store.app.hackerStats().leaked"></div>
-                  <div class="text-xs text-rose-900">Leaked past Security</div>
-                </div>
-                <div class="p-3 bg-amber-100 rounded-lg">
-                  <div class="text-2xl font-bold" x-text="$store.app.hackerStats().pending"></div>
-                  <div class="text-xs text-amber-900">Pending</div>
-                </div>
-              </div>
-
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead class="text-left text-slate-600">
-                    <tr>
-                      <th class="py-2 pr-3">When</th>
-                      <th class="py-2 pr-3">Hacker</th>
-                      <th class="py-2 pr-3">Issue</th>
-                      <th class="py-2 pr-3">Sprint</th>
-                      <th class="py-2 pr-3">Outcome</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="l in $store.app.hackerLog" :key="l.id">
-                      <tr class="border-t border-slate-200">
-                        <td
-                          class="py-2 pr-3 text-xs text-slate-500"
-                          x-text="new Date(l.created_at).toLocaleTimeString()"></td>
-                        <td class="py-2 pr-3 font-mono text-xs" x-text="l.hacker_token"></td>
-                        <td class="py-2 pr-3 font-mono text-xs" x-text="'#' + l.target_issue_id"></td>
-                        <td class="py-2 pr-3" x-text="l.sprint"></td>
-                        <td class="py-2 pr-3">
-                          <template x-if="l.caught_by_security === true">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800">Caught</span>
-                          </template>
-                          <template x-if="l.caught_by_security === false">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-rose-100 text-rose-800">Leaked</span>
-                          </template>
-                          <template x-if="l.caught_by_security === null">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800">Pending</span>
-                          </template>
-                        </td>
-                      </tr>
-                    </template>
-                    <template x-if="$store.app.hackerLog.length === 0">
-                      <tr>
-                        <td colspan="5" class="py-4 text-sm text-slate-500 italic text-center">No injections yet.</td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <!-- ============================================================
-             BOARD TAB (read-only global view)
-             ============================================================ -->
+          <!-- BOARD: read-only supervision view of every column with all
+               normally-hidden flags visible (hacked, flawed, code freeze,
+               stopped). The participant board on index.html hides hacked
+               and flawed; this view is the source of truth for the
+               facilitator. -->
           <section x-show="tab === 'board'" class="space-y-3">
             <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-3">Global board (read-only)</h2>
-              <p class="text-sm text-slate-600 mb-4">
-                Open
-                <a href="index.html" class="text-sky-600 underline">index.html</a>
-                in another tab for the full interactive view.
-              </p>
+              <div class="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+                <h2 class="text-lg font-bold">Global board (read-only supervision)</h2>
+                <p class="text-xs text-slate-500">
+                  Open <a href="index.html" target="_blank" rel="noopener" class="text-sky-600 underline">index.html</a>
+                  in another tab for the full interactive view.
+                </p>
+              </div>
               <div class="overflow-x-auto snap-x snap-mandatory sm:snap-none">
-                <div class="flex gap-3 min-h-[200px]">
+                <div class="flex gap-3 min-h-[240px]">
                   <template x-for="status in $store.app.columnOrder()" :key="status">
                     <div class="snap-start shrink-0 w-[85vw] sm:w-64 bg-slate-100 rounded-lg p-2">
                       <div class="font-semibold text-sm mb-2 flex justify-between">
@@ -534,17 +135,38 @@
                       <div class="space-y-1.5">
                         <template x-for="issue in $store.app.issuesInColumn(status)" :key="issue.id">
                           <div class="p-2 bg-white rounded border border-slate-200 text-xs">
-                            <span class="font-mono text-slate-400">
-                              #
-                              <span x-text="issue.id"></span>
-                            </span>
-                            <span class="ml-1" x-text="issue.title"></span>
-                            <template x-if="issue.team">
-                              <span class="ml-1 text-slate-500" x-text="'(' + issue.team + ')'"></span>
-                            </template>
-                            <template x-if="issue.hacked_flag">
-                              <span class="ml-1 text-rose-600 font-bold">[!]</span>
-                            </template>
+                            <div class="flex items-baseline gap-1">
+                              <span class="font-mono text-slate-400" x-text="'#' + issue.id"></span>
+                              <span class="flex-1 truncate" x-text="issue.title"></span>
+                            </div>
+                            <div class="mt-1 flex flex-wrap gap-1 text-[10px]">
+                              <template x-if="issue.team">
+                                <span class="text-slate-500" x-text="issue.team"></span>
+                              </template>
+                              <span class="text-emerald-700" x-text="'$' + issue.price"></span>
+                              <span class="text-slate-500"
+                                    x-text="$store.app.progressFor(issue).done + '/' + issue.batch_size"></span>
+                              <template x-if="issue.containerized">
+                                <span class="px-1 rounded bg-cyan-100 text-cyan-800">cont</span>
+                              </template>
+                              <template x-if="issue.code_freeze">
+                                <span class="px-1 rounded bg-blue-100 text-blue-900">freeze</span>
+                              </template>
+                              <template x-if="issue.stopped">
+                                <span class="px-1 rounded bg-rose-100 text-rose-900">stop</span>
+                              </template>
+                              <template x-if="issue.hacked_flag">
+                                <span class="px-1 rounded bg-fuchsia-100 text-fuchsia-900 font-bold">hacked</span>
+                              </template>
+                              <template x-if="issue.flawed">
+                                <span class="px-1 rounded bg-amber-100 text-amber-900 font-bold">flaw</span>
+                              </template>
+                              <template x-if="status === 'clarifications' && issue.clarification_target_role">
+                                <span class="px-1 rounded bg-rose-50 text-rose-700"
+                                      x-text="'→ ' + $store.app.roleLabel(issue.clarification_target_role)
+                                              + (issue.clarification_target_team ? '/' + issue.clarification_target_team : '')"></span>
+                              </template>
+                            </div>
                           </div>
                         </template>
                       </div>
@@ -553,69 +175,465 @@
                 </div>
               </div>
               <p class="text-xs text-slate-500 mt-3">
-                <span class="text-rose-600 font-bold">[!]</span>
-                indicates an injected flaw (visible only in this admin view).
+                Tags <span class="px-1 rounded bg-fuchsia-100 text-fuchsia-900 font-bold text-[10px]">hacked</span>
+                and <span class="px-1 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">flaw</span>
+                are NEVER shown to participants on the live board. They appear here so you can supervise
+                injection activity and the random-flaw distribution at a glance.
               </p>
             </div>
           </section>
 
-          <!-- ============================================================
-             RESET TAB
-             ============================================================ -->
-          <section x-show="tab === 'reset'" class="space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-3">Reset controls</h2>
-              <div class="space-y-4">
-                <div class="p-4 border border-amber-200 bg-amber-50 rounded-lg">
-                  <h3 class="font-semibold">Reset issues and tasks</h3>
-                  <p class="text-sm text-slate-600 mt-1">Clears the Kanban board. Keeps users and configuration.</p>
-                  <button
-                    @click="if (confirm('Clear all issues, tasks, and hacker log?')) $store.app.resetIssuesAndTasks()"
-                    class="mt-3 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 min-h-[44px]">
-                    Reset Issues and Tasks
-                  </button>
+          <!-- USERS -->
+          <section x-show="tab === 'users'" class="space-y-4">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-3"
+                 x-data="{single: {display_name: '', role: 'developer', team: ''}}">
+              <h3 class="font-semibold">Add a user</h3>
+              <div class="flex flex-wrap gap-2 items-end">
+                <div>
+                  <label class="text-xs text-slate-500">Name</label>
+                  <input x-model="single.display_name" class="px-2 py-1.5 border border-slate-300 rounded text-sm" />
                 </div>
+                <div>
+                  <label class="text-xs text-slate-500">Role</label>
+                  <select x-model="single.role" class="px-2 py-1.5 border border-slate-300 rounded text-sm">
+                    <template x-for="r in $store.app.VALID_ROLES || ['business','developer','tester','security','sysadmin','observer','hacker','facilitator']" :key="r">
+                      <option :value="r" x-text="r"></option>
+                    </template>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs text-slate-500">Team</label>
+                  <input x-model="single.team" placeholder="(optional)" class="px-2 py-1.5 border border-slate-300 rounded text-sm" />
+                </div>
+                <button @click="$store.app.createUser(single).then(t => { if (t) { $store.app.toast('Created token ' + t); single.display_name = ''; single.team = ''; } })"
+                        class="px-3 py-1.5 bg-slate-900 text-white text-sm rounded hover:bg-slate-800">Create</button>
+              </div>
+              <details class="border-t border-slate-200 pt-3">
+                <summary class="cursor-pointer text-sm font-medium text-slate-700">Bulk add (one per line: Name, Role, Team)</summary>
+                <textarea x-model="bulkText" rows="6"
+                          placeholder="Alice, developer, Team A&#10;Bob, tester, Team B"
+                          class="mt-2 w-full px-2 py-1.5 border border-slate-300 rounded text-sm font-mono"></textarea>
+                <button @click="
+                  const rows = bulkText.split('\n').map(s => s.split(',').map(p => p.trim())).filter(p => p[0]);
+                  const list = rows.map(p => ({display_name: p[0], role: (p[1] || 'developer'), team: p[2] || null}));
+                  $store.app.createUsersBulk(list).then(_ => bulkText = '');"
+                        class="mt-2 px-3 py-1.5 bg-slate-900 text-white text-sm rounded hover:bg-slate-800">Add all</button>
+              </details>
+            </div>
 
-                <div class="p-4 border border-rose-200 bg-rose-50 rounded-lg">
-                  <h3 class="font-semibold">Reset everything</h3>
-                  <p class="text-sm text-slate-600 mt-1">
-                    Wipes all data except the facilitator token and the game state row.
-                  </p>
-                  <button
-                    @click="if (confirm('Delete ALL users (except facilitator), issues, tasks, and hacker log?\n\nThis cannot be undone.')) $store.app.resetEverything()"
-                    class="mt-3 px-4 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700 min-h-[44px]">
-                    Reset Everything
-                  </button>
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-600">
+                  <tr>
+                    <th class="py-2 px-3 text-left">Token</th>
+                    <th class="py-2 px-3 text-left">Name</th>
+                    <th class="py-2 px-3 text-left">Role</th>
+                    <th class="py-2 px-3 text-left">Team</th>
+                    <th class="py-2 px-3 text-left">Cross-trained</th>
+                    <th class="py-2 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="u in $store.app.users" :key="u.token">
+                    <tr class="border-b border-slate-100" x-data="{editing: false, draft: {}}">
+                      <td class="py-2 px-3 font-mono text-xs" x-text="u.token"></td>
+                      <td class="py-2 px-3">
+                        <template x-if="!editing"><span x-text="u.display_name || ''"></span></template>
+                        <template x-if="editing"><input x-model="draft.display_name" class="px-1.5 py-0.5 border border-slate-300 rounded text-xs w-32" /></template>
+                      </td>
+                      <td class="py-2 px-3">
+                        <template x-if="!editing">
+                          <span class="inline-flex items-center gap-1.5">
+                            <span x-text="u.role"></span>
+                            <!-- Show the hacker's cover identity so facilitators
+                                 can see at a glance what role this participant
+                                 appears as to everyone else. effectiveRole()
+                                 uses hacker_previous_role to mask hackers as
+                                 their pre-promotion role; if it's missing the
+                                 fallback is 'developer'. -->
+                            <template x-if="u.role === 'hacker'">
+                              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-900"
+                                    x-text="'cover: ' + (u.hacker_previous_role || 'developer')"></span>
+                            </template>
+                          </span>
+                        </template>
+                        <template x-if="editing">
+                          <select x-model="draft.role" class="px-1.5 py-0.5 border border-slate-300 rounded text-xs">
+                            <template x-for="r in ['business','developer','tester','security','sysadmin','observer','hacker','facilitator']" :key="r">
+                              <option :value="r" x-text="r"></option>
+                            </template>
+                          </select>
+                        </template>
+                      </td>
+                      <td class="py-2 px-3">
+                        <template x-if="!editing"><span x-text="u.team || ''"></span></template>
+                        <template x-if="editing"><input x-model="draft.team" class="px-1.5 py-0.5 border border-slate-300 rounded text-xs w-24" /></template>
+                      </td>
+                      <td class="py-2 px-3 text-xs text-slate-500">
+                        <template x-if="u.cross_trained_role">
+                          <span><span x-text="u.cross_trained_role"></span><template x-if="u.cross_trained_team"><span x-text="' · ' + u.cross_trained_team"></span></template></span>
+                        </template>
+                      </td>
+                      <td class="py-2 px-3 text-right">
+                        <template x-if="!editing">
+                          <span class="flex gap-1 justify-end flex-wrap">
+                            <button @click="draft = {display_name: u.display_name, role: u.role, team: u.team}; editing = true"
+                                    class="text-xs text-sky-600 hover:underline">edit</button>
+                            <template x-if="u.role !== 'hacker' && u.role !== 'facilitator'">
+                              <button @click="$store.app.promoteToHacker(u.token)" class="text-xs text-fuchsia-700 hover:underline">→hacker</button>
+                            </template>
+                            <template x-if="u.role === 'hacker'">
+                              <button @click="$store.app.demoteHacker(u.token)" class="text-xs text-fuchsia-700 hover:underline">demote</button>
+                            </template>
+                            <button @click="if (confirm('Delete ' + u.token + '?')) $store.app.deleteUser(u.token)"
+                                    class="text-xs text-rose-600 hover:underline">delete</button>
+                          </span>
+                        </template>
+                        <template x-if="editing">
+                          <span class="flex gap-1 justify-end">
+                            <button @click="$store.app.updateUser(u.token, draft); editing = false"
+                                    class="text-xs px-2 py-0.5 bg-slate-900 text-white rounded">save</button>
+                            <button @click="editing = false" class="text-xs px-2 py-0.5 border border-slate-300 rounded">cancel</button>
+                          </span>
+                        </template>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- TEAMS -->
+          <section x-show="tab === 'teams'" class="space-y-4">
+            <div class="bg-white rounded-xl border border-slate-200 p-4"
+                 x-data="{newTeam: ''}">
+              <div class="flex gap-2 items-end">
+                <div>
+                  <label class="text-xs text-slate-500">New team</label>
+                  <input x-model="newTeam" placeholder="Team C" class="px-2 py-1.5 border border-slate-300 rounded text-sm" />
                 </div>
+                <button @click="if (newTeam.trim()) { $store.app.createTeam(newTeam); newTeam = ''; }"
+                        class="px-3 py-1.5 bg-slate-900 text-white text-sm rounded">Create</button>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-600">
+                  <tr>
+                    <th class="py-2 px-3 text-left">Team</th>
+                    <th class="py-2 px-3 text-right">Members</th>
+                    <th class="py-2 px-3 text-right">Cards</th>
+                    <th class="py-2 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="t in $store.app.teams" :key="t.id">
+                    <tr class="border-b border-slate-100" x-data="{editing: false, draft: ''}">
+                      <td class="py-2 px-3">
+                        <template x-if="!editing"><span x-text="t.name"></span></template>
+                        <template x-if="editing"><input x-model="draft" class="px-1.5 py-0.5 border border-slate-300 rounded text-xs" /></template>
+                      </td>
+                      <td class="py-2 px-3 text-right" x-text="$store.app.users.filter(u => u.team === t.name).length"></td>
+                      <td class="py-2 px-3 text-right" x-text="$store.app.issues.filter(i => i.team === t.name).length"></td>
+                      <td class="py-2 px-3 text-right">
+                        <template x-if="!editing">
+                          <span class="flex gap-1 justify-end">
+                            <button @click="draft = t.name; editing = true" class="text-xs text-sky-600 hover:underline">rename</button>
+                            <button @click="if (confirm('Delete team ' + t.name + '? Users and issues will be detached.')) $store.app.deleteTeam(t.name)"
+                                    class="text-xs text-rose-600 hover:underline">delete</button>
+                          </span>
+                        </template>
+                        <template x-if="editing">
+                          <span class="flex gap-1 justify-end">
+                            <button @click="$store.app.renameTeam(t.name, draft); editing = false"
+                                    class="text-xs px-2 py-0.5 bg-slate-900 text-white rounded">save</button>
+                            <button @click="editing = false" class="text-xs px-2 py-0.5 border border-slate-300 rounded">cancel</button>
+                          </span>
+                        </template>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- CARDS -->
+          <section x-show="tab === 'cards'" class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase text-slate-600">
+                <tr>
+                  <th class="py-2 px-3 text-left">#</th>
+                  <th class="py-2 px-3 text-left">Title</th>
+                  <th class="py-2 px-3 text-left">Status</th>
+                  <th class="py-2 px-3 text-left">Team</th>
+                  <th class="py-2 px-3 text-right">Price</th>
+                  <th class="py-2 px-3 text-right">Sprint</th>
+                  <th class="py-2 px-3 text-left">Flags</th>
+                  <th class="py-2 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="i in $store.app.issues" :key="i.id">
+                  <tr class="border-b border-slate-100">
+                    <td class="py-2 px-3 font-mono text-xs" x-text="i.id"></td>
+                    <td class="py-2 px-3 truncate max-w-xs" x-text="i.title"></td>
+                    <td class="py-2 px-3" x-text="$store.app.columnLabel(i.status)"></td>
+                    <td class="py-2 px-3" x-text="i.team || ''"></td>
+                    <td class="py-2 px-3 text-right" x-text="i.price"></td>
+                    <td class="py-2 px-3 text-right" x-text="i.sprint_created"></td>
+                    <td class="py-2 px-3 text-xs">
+                      <span x-show="i.containerized" class="px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 mr-1">cont</span>
+                      <span x-show="i.code_freeze" class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 mr-1">freeze</span>
+                      <span x-show="i.stopped" class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-900 mr-1">stop</span>
+                      <span x-show="i.hacked_flag" class="px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-900 mr-1">hack</span>
+                      <span x-show="i.flawed" class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 mr-1">flaw</span>
+                    </td>
+                    <td class="py-2 px-3 text-right">
+                      <button @click="if (confirm('Delete card #' + i.id + '?')) $store.app.deleteIssue(i)"
+                              class="text-xs text-rose-600 hover:underline">delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- SPRINT -->
+          <section x-show="tab === 'sprint'" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+              <h3 class="font-semibold">Current sprint</h3>
+              <div class="text-3xl font-bold" x-text="'Sprint ' + $store.app.gameState.current_sprint"></div>
+              <div class="flex gap-2 flex-wrap">
+                <button @click="if (confirm('Advance to next sprint? This applies devaluation, code-freeze clear, role swap (S2→S3) and cross-training (S1→S2).')) $store.app.advanceSprint()"
+                        class="px-3 py-2 bg-sky-600 text-white text-sm rounded hover:bg-sky-700">Advance sprint</button>
+                <button @click="if (confirm('Reset to Sprint 1? Clears cross-training and code freezes.')) $store.app.resetSprint()"
+                        class="px-3 py-2 border border-slate-300 text-sm rounded hover:bg-slate-50">Reset sprint</button>
+                <button @click="$store.app.reassignCrossTraining()"
+                        class="px-3 py-2 border border-slate-300 text-sm rounded hover:bg-slate-50">Re-roll cross-training</button>
+              </div>
+              <p class="text-xs text-slate-500">
+                Advancing 1 → 2 requires at least one Hacker. Promote one in the Users tab first.
+              </p>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <h3 class="font-semibold mb-2">Hacker activity</h3>
+              <div class="text-sm text-slate-700 space-y-0.5">
+                <div>Total injections: <strong x-text="$store.app.hackerStats().total"></strong></div>
+                <div>Caught: <strong x-text="$store.app.hackerStats().caught"></strong></div>
+                <div>Leaked to production: <strong x-text="$store.app.hackerStats().leaked"></strong></div>
+                <div>Pending verdict: <strong x-text="$store.app.hackerStats().pending"></strong></div>
+                <div>Container stops: <strong x-text="$store.app.hackerStats().stops"></strong></div>
               </div>
             </div>
           </section>
 
-          <!-- ============================================================
-             EXPORT TAB
-             ============================================================ -->
-          <section x-show="tab === 'export'" class="space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6">
-              <h2 class="text-lg font-bold mb-2">Export game state</h2>
-              <p class="text-sm text-slate-600 mb-4">
-                Downloads a single JSON file containing the full session state (users, issues, tasks, hacker log,
-                configuration). Use this for the post-session retrospective.
-              </p>
-              <button
-                @click="$store.app.exportStateJSON()"
-                class="px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 min-h-[44px]">
-                Download JSON
+          <!-- SETTINGS -->
+          <section x-show="tab === 'settings'" class="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+            <h3 class="font-semibold">Game configuration</h3>
+            <div x-data="{draft: JSON.parse(JSON.stringify($store.app.gameState))}" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <label class="text-xs text-slate-500">Session label</label>
+                <input x-model="draft.session_label" class="w-full px-2 py-1.5 border border-slate-300 rounded" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-500">Random flaw rate (%)</label>
+                <input x-model.number="draft.flaw_rate_percent" type="number" min="0" max="100"
+                       class="w-full px-2 py-1.5 border border-slate-300 rounded" />
+              </div>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" x-model="draft.sprint3_cicd_bypass" />
+                <span>Sprint 3: CI/CD bypass (containerized cards skip pipeline)</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" x-model="draft.sprint3_role_swap" />
+                <span>Sprint 3: role swap (Tester→Dev, Sec→SysAdmin on advance)</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" x-model="draft.code_freeze_auto_clear" />
+                <span>Auto-clear code freeze on sprint advance</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" x-model="draft.cross_training_enabled" />
+                <span>Cross-training enabled (auto-assign on Sprint 1→2)</span>
+              </label>
+              <div class="sm:col-span-2 flex gap-2">
+                <button @click="$store.app.updateGameState({session_label: draft.session_label, flaw_rate_percent: draft.flaw_rate_percent, sprint3_cicd_bypass: draft.sprint3_cicd_bypass, sprint3_role_swap: draft.sprint3_role_swap, code_freeze_auto_clear: draft.code_freeze_auto_clear, cross_training_enabled: draft.cross_training_enabled})"
+                        class="px-3 py-2 bg-slate-900 text-white text-sm rounded hover:bg-slate-800">Save</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- CURATED URLS -->
+          <section x-show="tab === 'urls'" class="space-y-4">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-2 items-center">
+              <button @click="urlDraft = {sprint: 1, category: '', label: '', url: '', default_batch_size: 1, default_price: 50, display_order: 0, active: true}"
+                      class="px-3 py-1.5 bg-slate-900 text-white text-sm rounded">+ Add URL</button>
+              <button @click="if (confirm('Wipe and re-seed curated URLs from defaults?')) $store.app.resetCuratedUrlsToDefaults()"
+                      class="px-3 py-1.5 border border-slate-300 text-sm rounded hover:bg-slate-50">Reset to defaults</button>
+            </div>
+            <template x-if="urlDraft">
+              <div class="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                <input x-model.number="urlDraft.sprint" type="number" min="1" max="3" placeholder="Sprint"
+                       class="px-2 py-1.5 border border-slate-300 rounded" />
+                <input x-model="urlDraft.category" placeholder="Category" class="px-2 py-1.5 border border-slate-300 rounded" />
+                <input x-model="urlDraft.label" placeholder="Label" class="px-2 py-1.5 border border-slate-300 rounded" />
+                <input x-model="urlDraft.url" placeholder="URL" class="sm:col-span-3 px-2 py-1.5 border border-slate-300 rounded" />
+                <input x-model.number="urlDraft.default_batch_size" type="number" placeholder="Batch" class="px-2 py-1.5 border border-slate-300 rounded" />
+                <input x-model.number="urlDraft.default_price" type="number" placeholder="Price" class="px-2 py-1.5 border border-slate-300 rounded" />
+                <input x-model.number="urlDraft.display_order" type="number" placeholder="Order" class="px-2 py-1.5 border border-slate-300 rounded" />
+                <div class="sm:col-span-3 flex gap-2">
+                  <button @click="$store.app.createCuratedUrl(urlDraft); urlDraft = null"
+                          class="px-3 py-1.5 bg-slate-900 text-white text-sm rounded">Save</button>
+                  <button @click="urlDraft = null" class="px-3 py-1.5 border border-slate-300 text-sm rounded">Cancel</button>
+                </div>
+              </div>
+            </template>
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-600">
+                  <tr>
+                    <th class="py-2 px-3 text-left">Sprint</th>
+                    <th class="py-2 px-3 text-left">Category</th>
+                    <th class="py-2 px-3 text-left">Label</th>
+                    <th class="py-2 px-3 text-left">URL</th>
+                    <th class="py-2 px-3 text-right">Batch</th>
+                    <th class="py-2 px-3 text-right">Price</th>
+                    <th class="py-2 px-3 text-center">Active</th>
+                    <th class="py-2 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="u in $store.app.curatedUrls" :key="u.id">
+                    <tr class="border-b border-slate-100">
+                      <td class="py-2 px-3" x-text="u.sprint"></td>
+                      <td class="py-2 px-3" x-text="u.category"></td>
+                      <td class="py-2 px-3" x-text="u.label"></td>
+                      <td class="py-2 px-3 text-xs"><a :href="u.url" target="_blank" class="text-sky-600 hover:underline truncate inline-block max-w-md align-middle" x-text="u.url"></a></td>
+                      <td class="py-2 px-3 text-right" x-text="u.default_batch_size"></td>
+                      <td class="py-2 px-3 text-right" x-text="u.default_price"></td>
+                      <td class="py-2 px-3 text-center">
+                        <input type="checkbox" :checked="u.active" @change="$store.app.editCuratedUrl(u.id, {active: $event.target.checked})" />
+                      </td>
+                      <td class="py-2 px-3 text-right">
+                        <button @click="if (confirm('Delete this URL?')) $store.app.deleteCuratedUrl(u.id)"
+                                class="text-xs text-rose-600 hover:underline">delete</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- COMMENTS MODERATION -->
+          <section x-show="tab === 'comments'" class="bg-white rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase text-slate-600">
+                <tr>
+                  <th class="py-2 px-3 text-left">When</th>
+                  <th class="py-2 px-3 text-left">Card</th>
+                  <th class="py-2 px-3 text-left">Author</th>
+                  <th class="py-2 px-3 text-left">Body</th>
+                  <th class="py-2 px-3 text-left">Type</th>
+                  <th class="py-2 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="c in [...$store.app.comments].sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''))" :key="c.id">
+                  <tr class="border-b border-slate-100" :class="c.hidden_at ? 'bg-rose-50' : ''">
+                    <td class="py-2 px-3 text-xs text-slate-500" x-text="$store.app.relativeTime(c.created_at)"></td>
+                    <td class="py-2 px-3 font-mono text-xs" x-text="'#' + c.issue_id"></td>
+                    <td class="py-2 px-3 text-xs">
+                      <span x-text="$store.app.roleLabel(c.author_role_at_post)"></span>
+                      <template x-if="c.author_team_at_post"><span x-text="' · ' + c.author_team_at_post"></span></template>
+                    </td>
+                    <td class="py-2 px-3 truncate max-w-md" x-text="c.body"></td>
+                    <td class="py-2 px-3 text-xs">
+                      <template x-if="c.is_rejection"><span class="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded">rejection</span></template>
+                      <template x-if="c.hidden_at"><span class="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded ml-1">hidden</span></template>
+                    </td>
+                    <td class="py-2 px-3 text-right text-xs">
+                      <template x-if="!c.hidden_at">
+                        <button @click="$store.app.hideCommentByFacilitator(c.id)" class="text-amber-600 hover:underline">hide</button>
+                      </template>
+                      <template x-if="c.hidden_at">
+                        <button @click="$store.app.unhideCommentByFacilitator(c.id)" class="text-amber-600 hover:underline">unhide</button>
+                      </template>
+                      <button @click="if (confirm('Hard delete this comment?')) $store.app.deleteComment(c.id)"
+                              class="ml-2 text-rose-600 hover:underline">delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- LOG -->
+          <section x-show="tab === 'log'" class="space-y-4" x-data="{logFilter: 'all'}">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap gap-2 items-center text-sm">
+              <span class="text-slate-500">Filter:</span>
+              <button @click="logFilter = 'all'" :class="logFilter === 'all' ? 'bg-slate-900 text-white' : 'border border-slate-300'" class="px-2 py-1 rounded text-xs">all</button>
+              <button @click="logFilter = 'inject'" :class="logFilter === 'inject' ? 'bg-slate-900 text-white' : 'border border-slate-300'" class="px-2 py-1 rounded text-xs">inject</button>
+              <button @click="logFilter = 'stop_container'" :class="logFilter === 'stop_container' ? 'bg-slate-900 text-white' : 'border border-slate-300'" class="px-2 py-1 rounded text-xs">stops</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-600">
+                  <tr>
+                    <th class="py-2 px-3 text-left">When</th>
+                    <th class="py-2 px-3 text-left">Type</th>
+                    <th class="py-2 px-3 text-left">Hacker</th>
+                    <th class="py-2 px-3 text-left">Issue</th>
+                    <th class="py-2 px-3 text-left">Sprint</th>
+                    <th class="py-2 px-3 text-left">Caught</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="l in $store.app.hackerLog.filter(l => logFilter === 'all' || l.action_type === logFilter)" :key="l.id">
+                    <tr class="border-b border-slate-100">
+                      <td class="py-2 px-3 text-xs" x-text="$store.app.relativeTime(l.created_at)"></td>
+                      <td class="py-2 px-3 text-xs" x-text="l.action_type"></td>
+                      <td class="py-2 px-3 font-mono text-xs" x-text="l.hacker_token || ''"></td>
+                      <td class="py-2 px-3 font-mono text-xs" x-text="'#' + l.target_issue_id"></td>
+                      <td class="py-2 px-3" x-text="l.sprint"></td>
+                      <td class="py-2 px-3 text-xs">
+                        <template x-if="l.caught_by_security === true"><span class="text-emerald-700">caught</span></template>
+                        <template x-if="l.caught_by_security === false"><span class="text-rose-700">leaked</span></template>
+                        <template x-if="l.caught_by_security === null"><span class="text-slate-500">pending</span></template>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- DATA / EXPORT / RESET -->
+          <section x-show="tab === 'data'" class="space-y-4">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+              <h3 class="font-semibold">Export</h3>
+              <button @click="$store.app.exportStateJSON()" class="px-3 py-2 bg-slate-900 text-white text-sm rounded hover:bg-slate-800">
+                Download full state JSON
               </button>
+            </div>
+            <div class="bg-white rounded-xl border border-rose-300 p-4 space-y-3">
+              <h3 class="font-semibold text-rose-900">Danger zone</h3>
+              <div class="flex flex-wrap gap-2">
+                <button @click="if (confirm('Reset all issues, tasks, comments, hacker log, and event log? Users and teams remain.')) $store.app.resetIssuesAndTasks()"
+                        class="px-3 py-2 border border-rose-300 text-rose-700 text-sm rounded hover:bg-rose-50">Reset issues &amp; tasks</button>
+                <button @click="if (confirm('Wipe EVERYTHING except the facilitator user and reset game state? Also clears uploaded images.')) $store.app.resetEverything()"
+                        class="px-3 py-2 bg-rose-700 text-white text-sm rounded hover:bg-rose-800">Reset everything</button>
+              </div>
             </div>
           </section>
         </main>
 
         <!-- Toast -->
-        <div
-          x-show="$store.app.toastMsg"
-          x-transition.opacity
-          class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
-          x-text="$store.app.toastMsg"></div>
+        <div x-show="$store.app.toastMsg" x-transition.opacity
+             class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg"
+             x-text="$store.app.toastMsg"></div>
       </div>
     </template>
   </body>

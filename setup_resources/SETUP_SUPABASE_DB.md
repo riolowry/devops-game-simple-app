@@ -1,110 +1,120 @@
-# Supabase setup
+# Setting up the Supabase database
 
-The backend is one Supabase project. Free tier. About 5 minutes of work.
+Time required: ~10 minutes for a fresh project.
 
-## 1. Create a Supabase account
+## 1. Create the project
 
-Go to [supabase.com](https://supabase.com) and sign up. Free tier, no credit card required.
+1. Go to [supabase.com](https://supabase.com) and sign in.
+2. **New project**. Name it (e.g. `devsecops-adventure-may2026`). Pick a region near your participants. Set a strong DB password (you won't need it day-to-day, but Supabase requires one).
+3. Wait ~2 minutes for provisioning.
 
-## 2. Create a new project
+## 2. Apply the schema
 
-Click **New project**. Choose:
+1. In the Supabase dashboard, open **SQL Editor**.
+2. Copy the entire contents of `setup_resources/schema.sql` from this repository.
+3. Paste into the editor. Click **Run** (or Ctrl/Cmd + Enter).
+4. The output should report `Success. No rows returned`. The script:
+   - drops any existing DevSecOps Adventure tables (safe: this is a fresh project)
+   - creates `users`, `teams`, `issues`, `tasks`, `game_state`, `hacker_log`, `comments`, `curated_urls`, `event_log`
+   - seeds the `FACIL1` facilitator user, two default teams (`Team A`, `Team B`), and 20 curated coloring URLs
+   - creates the `task-images` storage bucket with public read/write policies
+   - registers all tables with the realtime publication
+   - disables RLS on every table (classroom trust-based)
+   - installs an `updated_at` trigger on `issues` and `tasks`
 
-- **Name**: anything, e.g. `devops-colouring`. This is just for your dashboard.
-- **Database password**: generate a strong one. Save it somewhere. You will not need it for the app itself, but Supabase requires it.
-- **Region**: pick the one closest to where the conference is happening. This affects latency.
-- **Pricing plan**: Free.
+5. Verify by running:
 
-Provisioning takes about 2 minutes.
+   ```sql
+   SELECT table_name FROM information_schema.tables
+   WHERE table_schema = 'public' ORDER BY table_name;
+   ```
 
-## 3. Run the schema
+   You should see all 9 tables.
 
-Open the **SQL Editor** (left sidebar). Click **New query**. Paste the entire contents of `setup_resources/schema.sql` from this project. Click **Run**.
+## 3. Get your project URL and publishable key
 
-You should see `Success. No rows returned.` or similar. The editor might flag a warning about the `ALTER PUBLICATION` lines; that is fine as long as the query finishes without an error.
+1. Open **Project Settings → API Keys** (left sidebar).
+2. Copy the **Project URL** (looks like `https://abcdefghij.supabase.co`).
+3. Copy the **publishable** key (`sb_publishable_...`). On legacy projects this is called the **anon** key (`eyJ...` JWT). Either works.
 
-The schema does three things in one shot:
+> **Do not** copy the `service_role` or `sb_secret_...` keys. Those bypass security and must never be put in browser code.
 
-1. Creates the five tables (`users`, `issues`, `tasks`, `game_state`, `hacker_log`) with checks, triggers, and the seed facilitator token `FACIL1`.
-2. Adds those tables to the realtime publication so the browser receives WebSocket change events.
-3. Creates the `task-images` storage bucket (public-read) with policies that allow the publishable key to upload, view, and delete images. This is what the in-app file upload writes to.
+## 4. Configure the frontend
 
-Verify by running:
+1. Copy `setup_resources/config.example.js` to `public/config.js`.
+2. Replace the two placeholder strings at the top:
 
-```sql
-SELECT * FROM users;
-SELECT * FROM game_state;
-SELECT id, name, public FROM storage.buckets WHERE id = 'task-images';
-```
+   ```js
+   project_supabase_url = "https://YOUR-PROJECT-REF.supabase.co";
+   project_supabase_publishable_key = "sb_publishable_YOUR-KEY-HERE";
+   ```
 
-You should see one user (`FACIL1`, the default facilitator), one game state row, and one bucket marked `public = true`.
+3. Save. Add `public/config.js` to your `.gitignore` so you don't commit credentials.
 
-## 4. Copy your API credentials
+## 5. Verify
 
-Go to **Project Settings** (gear icon, bottom left) then **API Keys**.
+1. Serve the `public/` directory: `python3 -m http.server 8000` from inside `public/`.
+2. Open `http://localhost:8000`.
+3. Open the browser DevTools console. You should see:
 
-You need two values:
+   ```
+   [devsec] app.js loaded (v2 modular build, complete)
+   ```
 
-- **Project URL**: looks like `https://abcdefghijk.supabase.co`. Find it on the **API** or **Connect** screen.
-- **Publishable key**: a string starting with `sb_publishable_…`. If you do not see one, click **Create new API Keys** to generate it.
-
-Older Supabase projects (created before late 2025) may still show an **anon public** key (a long JWT starting with `eyJ…`). The app accepts both formats, so if your project predates the new key system you can use the anon key for now and migrate to a publishable key whenever it suits you. Do **not** copy any `service_role` or `sb_secret_…` value: those bypass security and must never reach a browser.
-
-## 5. Paste them into `config.js`
-
-Copy and rename the configuration template from `setup_resources/config.example.js` to `public/config.js`. From the project root:
-
-```bash
-cp setup_resources/config.example.js public/config.js
-```
-
-Open `public/config.js` and replace the placeholders with your actual values:
-
-```js
-project_supabase_url = "https://YOUR-PROJECT-REF.supabase.co";
-project_supabase_publishable_key = "sb_publishable_YOUR-KEY-HERE";
-```
-
-For example:
-
-```js
-project_supabase_url = "https://abcdefghijk.supabase.co";
-project_supabase_publishable_key = "sb_publishable_AbCdEf123...";
-```
-
-Save.
-
-## 6. Verify realtime is enabled
-
-The schema adds the tables to the realtime publication, but double-check:
-
-1. Left sidebar: **Database** → **Publications**.
-2. Click `supabase_realtime`.
-3. Confirm `issues`, `tasks`, `game_state`, `users`, `hacker_log` all show as enabled.
-
-If any are missing, toggle them on.
-
-## 7. Next steps
-
-1. Confirm `public/config.js` exists with your real credentials (not the placeholders).
-2. Go to [SETUP_CLOUDFLARE_DEPLOYMENT.md](SETUP_CLOUDFLARE_DEPLOYMENT.md) and follow the deployment instructions, including dragging the `public/` folder into your Cloudflare project.
-
-## 8. Test locally (optional)
-
-You can open `public/index.html` directly in a browser from your local filesystem for a quick smoke test, though some browsers block `file://` imports. Easier: skip ahead to deployment.
+4. Sign in with the seed token `FACIL1`. The board should load empty.
+5. Open `http://localhost:8000/admin.html` to confirm the admin panel loads.
+6. (Optional) Run `App.healthCheck()` in the browser console. Every table should report `OK` with row count.
 
 ## Troubleshooting
 
-**"Configuration required" page.** You either did not create `public/config.js`, or its contents still contain the placeholder `YOUR-PROJECT-REF`. Double-check the file.
+### Every request returns 401 with "permission denied for table ..."
 
-**"Token not recognized."** You are trying to log in before any tokens exist. Log in as the facilitator first (default token `FACIL1`) and generate tokens in the admin panel.
+The Postgres role behind the publishable key (usually `anon`) lacks SELECT on the public schema. New Supabase projects no longer auto-grant CRUD to `anon` and `authenticated`. The included `schema.sql` adds explicit GRANTs so this should not happen on a freshly applied schema. If you're seeing it on an older schema run, paste this in the SQL Editor:
 
-**Cards do not update in real time.** The yellow dot in the header indicates polling fallback is active (usually because the network blocks WebSockets). Functionality is unchanged; updates arrive within 3 seconds.
+```sql
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+```
 
-**Image upload fails.** Verify step 3 finished cleanly: the `task-images` bucket must exist and have all three storage policies (read, insert, delete). Re-running `schema.sql` is safe and will recreate everything idempotently.
+Reload the app. The 401s will clear.
 
-**Paused project.** Supabase pauses free-tier projects after 7 days of inactivity. The first request after a pause wakes it, but may take 30 to 60 seconds. Hit the app URL the day before your session to warm it up.
+### "Invalid API key" or 401 with no Postgres error code
 
-## Hardening (optional)
+The publishable key in `public/config.js` doesn't match the project, was rotated, or was left as the placeholder. Re-copy from Supabase Dashboard → Project Settings → API Keys.
 
-For a long-running deployment (not a throwaway classroom), enable Row Level Security in the Supabase dashboard and add policies. See `schema.sql`; the `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` lines are where you would switch this back on, and the storage policies at the bottom of the file should be tightened so only authenticated users can upload or delete. Writing those policies is outside the scope of this guide but the Supabase docs cover it well.
+## Re-running the schema
+
+The `schema.sql` is idempotent (DROPs use IF EXISTS, CREATEs use IF NOT EXISTS, seeds use ON CONFLICT DO NOTHING). Re-running on a project drops every table first, so any session data is lost. Export from the admin panel before re-running if you want to keep it.
+
+## In-place migrations (preserve session data)
+
+If you have a live deployment and don't want to drop tables, run only the new ALTER TABLEs in the SQL Editor. Current pending migration:
+
+```sql
+-- Add clarification_kind so the UI can distinguish rejection rework
+-- from question-and-answer in the Clarifications column. Existing rows
+-- in the column are treated as 'rejection' (the only kind that existed
+-- pre-migration).
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS clarification_kind TEXT
+  CHECK (clarification_kind IS NULL OR clarification_kind IN ('rejection', 'question'));
+
+UPDATE issues
+  SET clarification_kind = 'rejection'
+  WHERE status = 'clarifications' AND clarification_kind IS NULL;
+```
+
+
+## Hardening for production-style use
+
+The schema disables Row Level Security for the classroom exercise. To run this somewhere with adversarial users:
+
+1. Re-enable RLS on every table.
+2. Write policies that gate by participant token (e.g. require a `token` claim and match against `users.token`).
+3. Move the publishable key behind a server endpoint that validates tokens and stamps them onto the JWT.
+
+This is out of scope for the included schema and is left as an exercise.

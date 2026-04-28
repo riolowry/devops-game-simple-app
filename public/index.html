@@ -8,20 +8,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="app.core.js"></script>
+    <script src="app.logic.js"></script>
+    <script src="app.store.js"></script>
+    <script src="app.actions.js"></script>
+    <script src="app.boot.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
   </head>
 
   <body class="bg-slate-50 text-slate-900 antialiased" x-data x-init="$store.app.init()">
-    <!-- ============================================================
-       LOGIN SCREEN
-       ============================================================ -->
+    <!-- LOGIN SCREEN -->
     <template x-if="!$store.app.user">
       <div class="min-h-screen flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
           <h1 class="text-2xl font-bold">ITS DevSecOps Adventure</h1>
           <p class="text-slate-600 mt-2 text-sm">Enter your participant token to join.</p>
-
           <form class="mt-6 space-y-4" @submit.prevent="$store.app.login($refs.tokenInput.value)">
             <div>
               <label class="block text-sm font-medium mb-1">Token</label>
@@ -34,33 +35,18 @@
                 placeholder="e.g. K7QX39"
                 class="w-full uppercase tracking-widest font-mono text-lg px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" />
             </div>
-            <button
-              type="submit"
-              class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 active:bg-slate-700">
+            <button type="submit" class="w-full bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800">
               Join
             </button>
-            <p
-              x-show="$store.app.loginError"
-              x-text="$store.app.loginError"
-              class="text-sm text-rose-600 text-center"></p>
+            <p x-show="$store.app.loginError" x-text="$store.app.loginError" class="text-sm text-rose-600 text-center"></p>
           </form>
-
-          <div class="mt-8 pt-6 border-t border-slate-200 text-xs text-slate-500">
-            <p>
-              Facilitators: open
-              <a href="admin.html" class="text-sky-600 underline">admin.html</a>
-              .
-            </p>
-          </div>
         </div>
       </div>
     </template>
 
-    <!-- ============================================================
-       MAIN APP (after login)
-       ============================================================ -->
+    <!-- MAIN APP -->
     <template x-if="$store.app.user">
-      <div class="min-h-screen flex flex-col" x-data="{ openIssue: null, helpOpen: false, tab: 'board' }">
+      <div class="min-h-screen flex flex-col" x-data="{openIssue: null, helpOpen: false, cardHelpOpen: false, newCard: null, rejectFor: null, rejectReason: '', askOpen: false, askTargetRole: '', askTargetTeam: '', askBody: '', answerOpen: false, answerBody: ''}">
         <!-- Header -->
         <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
           <div class="px-3 sm:px-6 py-3 flex items-center gap-2 sm:gap-4">
@@ -68,72 +54,64 @@
               <div class="text-xs text-slate-500 truncate" x-text="$store.app.gameState.session_label"></div>
               <div class="flex items-baseline gap-2">
                 <h1 class="font-bold text-base sm:text-lg">DevSecOps Adventure</h1>
-                <span
-                  class="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full"
-                  x-text="'Sprint ' + $store.app.gameState.current_sprint"></span>
+                <span class="inline-block px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full"
+                      x-text="'Sprint ' + $store.app.gameState.current_sprint"></span>
               </div>
             </div>
-
-            <!-- Role + team badge. Uses effective role/team so facilitators
-               who are impersonating see the participant's view (that way
-               nothing above the footer bar hints they are a facilitator). -->
             <div class="hidden sm:block text-right">
               <div class="text-xs text-slate-500">Signed in as</div>
               <div class="text-sm font-medium">
                 <span x-text="$store.app.roleLabel($store.app.effectiveRole())"></span>
                 <template x-if="$store.app.effectiveTeam()">
-                  <span class="text-slate-500">
-                    ·
-                    <span x-text="$store.app.effectiveTeam()"></span>
-                  </span>
+                  <span class="text-slate-500">· <span x-text="$store.app.effectiveTeam()"></span></span>
                 </template>
               </div>
             </div>
-
-            <!-- Connection indicator -->
             <div class="flex items-center" :title="'Sync: ' + $store.app.connectionMode">
-              <span
-                class="w-2.5 h-2.5 rounded-full"
-                :class="{
-                    'bg-emerald-500': $store.app.connectionMode === 'realtime',
-                    'bg-amber-500':   $store.app.connectionMode === 'polling',
-                    'bg-rose-500':    $store.app.connectionMode === 'disconnected',
-                    'bg-slate-300':   $store.app.connectionMode === 'connecting'
-                  }"></span>
+              <span class="w-2.5 h-2.5 rounded-full"
+                    :class="{'bg-emerald-500': $store.app.connectionMode === 'realtime', 'bg-amber-500': $store.app.connectionMode === 'polling', 'bg-rose-500': $store.app.connectionMode === 'disconnected', 'bg-slate-300': $store.app.connectionMode === 'connecting'}"></span>
             </div>
-
-            <button
-              @click="helpOpen = true"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0">
+            <a href="leaderboard.html" target="_blank" rel="noopener"
+               class="hidden sm:inline-block px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50">
+              Leaderboard
+            </a>
+            <button @click="helpOpen = true"
+                    class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0">
               Help
             </button>
-            <button
-              @click="$store.app.logout()"
-              class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0">
+            <button @click="$store.app.logout()"
+                    class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 hover:bg-slate-50 min-h-[44px] sm:min-h-0">
               Exit
             </button>
           </div>
 
-          <!-- Small-screen role/team badge (also uses effective values). -->
+          <!-- Small-screen identity row -->
           <div class="sm:hidden px-3 pb-2 text-xs text-slate-600">
             <span class="font-medium" x-text="$store.app.roleLabel($store.app.effectiveRole())"></span>
             <template x-if="$store.app.effectiveTeam()">
-              <span>
-                ·
-                <span x-text="$store.app.effectiveTeam()"></span>
-              </span>
+              <span>· <span x-text="$store.app.effectiveTeam()"></span></span>
             </template>
             <template x-if="$store.app.user.token">
               <span class="ml-2 font-mono text-slate-400" x-text="$store.app.user.token"></span>
             </template>
           </div>
 
-          <!-- Column nav strip (scroll-to for mobile, jump to column) -->
+          <!-- Cross-training banner -->
+          <template x-if="$store.app.crossTrainedRole()">
+            <div class="px-3 sm:px-6 py-1.5 bg-violet-50 border-t border-violet-200 text-xs text-violet-900">
+              You are also cross-trained as
+              <span class="font-medium" x-text="$store.app.roleLabel($store.app.crossTrainedRole())"></span>
+              <template x-if="$store.app.user.cross_trained_team">
+                <span> on <span class="font-medium" x-text="$store.app.user.cross_trained_team"></span></span>
+              </template>.
+            </div>
+          </template>
+
+          <!-- Column nav strip -->
           <nav class="flex gap-1 px-3 sm:px-6 pb-2 overflow-x-auto text-xs">
             <template x-for="s in $store.app.columnOrder()" :key="s">
-              <a
-                :href="'#col-' + s"
-                class="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">
+              <a :href="'#col-' + s"
+                 class="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">
                 <span x-text="$store.app.columnLabel(s)"></span>
                 <span class="ml-1 text-slate-500" x-text="'(' + $store.app.issuesInColumn(s).length + ')'"></span>
               </a>
@@ -141,17 +119,13 @@
           </nav>
         </header>
 
-        <!-- ============================================================
-           KANBAN BOARD
-           Horizontal scroll with snap on mobile; columns visible on wide screens
-           ============================================================ -->
+        <!-- KANBAN BOARD -->
         <main class="flex-1 overflow-hidden">
           <div class="h-full overflow-x-auto snap-x snap-mandatory sm:snap-none px-3 sm:px-6 py-4">
             <div class="flex gap-3 sm:gap-4 h-full min-h-[60vh]">
               <template x-for="status in $store.app.columnOrder()" :key="status">
-                <section
-                  :id="'col-' + status"
-                  class="snap-start shrink-0 w-[85vw] sm:w-80 bg-slate-100 rounded-xl flex flex-col max-h-full">
+                <section :id="'col-' + status"
+                         class="snap-start shrink-0 w-[85vw] sm:w-80 bg-slate-100 rounded-xl flex flex-col max-h-full">
                   <header class="px-3 py-2 border-b border-slate-200 flex items-baseline justify-between">
                     <h2 class="font-semibold text-sm" x-text="$store.app.columnLabel(status)"></h2>
                     <span class="text-xs text-slate-500" x-text="$store.app.issuesInColumn(status).length"></span>
@@ -159,31 +133,41 @@
 
                   <div class="overflow-y-auto p-2 space-y-2 flex-1 min-h-[200px]">
                     <template x-for="issue in $store.app.issuesInColumn(status)" :key="issue.id">
-                      <button
-                        @click="openIssue = issue"
-                        class="w-full text-left bg-white p-3 rounded-lg border border-slate-200 hover:border-slate-400 hover:shadow-sm min-h-[80px]">
+                      <button @click="openIssue = issue"
+                              class="w-full text-left bg-white p-3 rounded-lg border border-slate-200 hover:border-slate-400 hover:shadow-sm min-h-[80px]">
                         <div class="flex items-start gap-2">
                           <span class="font-mono text-xs text-slate-400" x-text="'#' + issue.id"></span>
                           <span class="flex-1 font-medium text-sm" x-text="issue.title"></span>
+                          <template x-if="$store.app.commentCountForIssue(issue.id) > 0">
+                            <span class="text-xs text-slate-500" x-text="'💬 ' + $store.app.commentCountForIssue(issue.id)"></span>
+                          </template>
                         </div>
                         <div class="mt-2 flex flex-wrap gap-1.5">
                           <template x-if="issue.team">
-                            <span
-                              class="text-xs px-2 py-0.5 rounded-full"
-                              :class="$store.app.teamColor(issue.team)"
-                              x-text="issue.team"></span>
+                            <span class="text-xs px-2 py-0.5 rounded-full" :class="$store.app.teamColor(issue.team)" x-text="issue.team"></span>
                           </template>
-                          <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800"
-                            x-text="'$' + issue.price"></span>
-                          <span
-                            class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700"
-                            x-text="'Batch ' + $store.app.progressFor(issue).done + '/' + issue.batch_size"></span>
+                          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800" x-text="'$' + issue.price"></span>
+                          <span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-700"
+                                x-text="'Batch ' + $store.app.progressFor(issue).done + '/' + issue.batch_size"></span>
                           <template x-if="issue.containerized">
                             <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800">container</span>
                           </template>
-                          <template x-if="issue.feedback_reason && issue.status === 'feedback'">
-                            <span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">rejected</span>
+                          <template x-if="issue.code_freeze">
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-900">freeze</span>
+                          </template>
+                          <template x-if="issue.stopped">
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-900">stopped</span>
+                          </template>
+                          <template x-if="issue.hacked_flag && $store.app.isFacilitatorView()">
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-fuchsia-100 text-fuchsia-900">hacked</span>
+                          </template>
+                          <template x-if="issue.flawed && $store.app.isFacilitatorView()">
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">flawed</span>
+                          </template>
+                          <template x-if="status === 'clarifications' && issue.clarification_target_role">
+                            <span class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                  :class="$store.app.clarificationKind(issue) === 'question' ? 'bg-blue-100 text-blue-900' : 'bg-rose-100 text-rose-900'"
+                                  x-text="$store.app.clarificationLabel(issue)"></span>
                           </template>
                         </div>
                       </button>
@@ -191,9 +175,8 @@
 
                     <!-- Business: create issue button in Market column -->
                     <template x-if="status === 'market' && $store.app.effectiveRole() === 'business'">
-                      <button
-                        @click="openIssue = 'new'"
-                        class="w-full text-sm py-3 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700 min-h-[60px]">
+                      <button @click="newCard = {title: '', description_url: '', price: 100, batch_size: 1, acceptance_criteria: '', curated_url_id: null, category: ''}"
+                              class="w-full text-sm py-3 rounded-lg border-2 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700 min-h-[60px]">
                         + New Product Request
                       </button>
                     </template>
@@ -204,650 +187,966 @@
           </div>
         </main>
 
-        <!-- ============================================================
-           ISSUE DETAIL MODAL
-           Full-screen on phones, centered on sm+
-           ============================================================ -->
-        <div
-          x-show="openIssue"
-          x-transition.opacity
-          @keydown.escape.window="openIssue = null"
-          class="fixed inset-0 bg-black/50 z-30 flex sm:items-center sm:justify-center">
-          <div
-            class="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:rounded-2xl overflow-y-auto shadow-2xl"
-            @click.stop>
-            <!-- NEW ISSUE FORM -->
-            <template x-if="openIssue === 'new'">
-              <form
-                class="p-5 sm:p-6 space-y-4"
-                x-data="{ title: '', description_url: '', price: 100, batch_size: 1 }"
-                @submit.prevent="await $store.app.createIssue({ title, description_url, price, batch_size }); openIssue = null">
-                <div class="flex items-start justify-between">
-                  <h2 class="text-xl font-bold">New Product Request</h2>
-                  <button
-                    type="button"
-                    @click="openIssue = null"
-                    class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
-                    &times;
-                  </button>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Title</label>
-                  <input
-                    x-model="title"
-                    type="text"
-                    required
-                    placeholder="e.g. Puppy Sitting"
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Colouring page URL</label>
-                  <input
-                    x-model="description_url"
-                    type="url"
-                    placeholder="https://www.online-coloring.com/..."
-                    class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-sm font-medium mb-1">Price</label>
-                    <input
-                      x-model.number="price"
-                      type="number"
-                      min="1"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1">Batch size</label>
-                    <input
-                      x-model.number="batch_size"
-                      type="number"
-                      min="1"
-                      class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+        <!-- CARD DETAIL MODAL -->
+        <template x-if="openIssue && openIssue !== 'new'">
+          <div class="fixed inset-0 bg-slate-900/50 z-30 flex items-end sm:items-center justify-center p-0 sm:p-4"
+               @click.self="openIssue = null; cardHelpOpen = false; rejectFor = null; rejectReason = ''; askOpen = false; askTargetRole = ''; askTargetTeam = ''; askBody = ''; answerOpen = false; answerBody = ''; $store.app.securityCheckResult = null; $store.app.shiftLeftResult = null">
+            <div class="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+                 @keydown.escape.window="openIssue = null">
+              <header class="px-5 py-4 border-b border-slate-200 flex items-start gap-3 sticky top-0 bg-white z-10">
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs text-slate-500 font-mono">#<span x-text="openIssue?.id"></span></div>
+                  <h2 class="text-xl font-bold leading-tight" x-text="openIssue?.title"></h2>
+                  <div class="mt-1 text-xs text-slate-500">
+                    <span x-text="'Sprint ' + (openIssue?.sprint_created || '')"></span>
+                    <span class="mx-1">·</span>
+                    <span x-text="$store.app.columnLabel(openIssue?.status || '')"></span>
                   </div>
                 </div>
-                <div class="flex gap-2 pt-2">
-                  <button
-                    type="submit"
-                    class="flex-1 bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 min-h-[44px]">
-                    Create
-                  </button>
-                  <button
-                    type="button"
-                    @click="openIssue = null"
-                    class="px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[44px]">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </template>
+                <button @click="cardHelpOpen = !cardHelpOpen"
+                        class="w-9 h-9 rounded-full border border-slate-300 hover:bg-slate-50 flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0"
+                        :class="cardHelpOpen ? 'bg-sky-100 border-sky-400 text-sky-700' : ''"
+                        title="What can I do here?">?</button>
+                <button @click="openIssue = null; cardHelpOpen = false"
+                        class="text-slate-400 hover:text-slate-600 text-2xl leading-none flex-shrink-0 px-2"
+                        aria-label="Close">&times;</button>
+              </header>
 
-            <!-- EXISTING ISSUE DETAIL -->
-            <template x-if="openIssue && openIssue !== 'new'">
-              <div
-                class="p-5 sm:p-6 space-y-5"
-                x-data="{
-                   newTaskContainerized: false,
-                   taskUrl: {},
-                   rejectReason: '',
-                   showReject: false
-                 }">
-                <!-- Header -->
-                <div class="flex items-start justify-between gap-4">
-                  <div class="min-w-0">
-                    <div class="text-xs text-slate-500 font-mono">
-                      #
-                      <span x-text="openIssue.id"></span>
-                    </div>
-                    <h2 class="text-xl font-bold" x-text="openIssue.title"></h2>
-                    <div class="mt-1 text-xs text-slate-500">
-                      <span x-text="'Sprint ' + openIssue.sprint_created"></span>
-                    </div>
+              <div class="p-5 sm:p-6 space-y-4">
+                <!-- Context-aware help panel -->
+                <template x-if="cardHelpOpen">
+                  <div class="bg-sky-50 border border-sky-200 rounded-lg p-3 text-sm">
+                    <div class="font-semibold text-sky-900" x-text="$store.app.helpForCard(openIssue).title"></div>
+                    <ul class="list-disc ml-5 mt-1 text-sky-900 space-y-0.5">
+                      <template x-for="b in $store.app.helpForCard(openIssue).bullets" :key="b">
+                        <li x-text="b"></li>
+                      </template>
+                    </ul>
                   </div>
-                  <button
-                    @click="openIssue = null; $store.app.securityCheckResult = null"
-                    class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
-                    &times;
-                  </button>
-                </div>
+                </template>
 
-                <!-- Badges. Team is promoted to a prominent, color-coded badge
-                   so developers (and simulating facilitators) can see at a
-                   glance which team owns this ticket. -->
+                <!-- Clarification banner. Visible whenever the card is
+                     in the Clarifications column. Shape and color
+                     depend on the kind: rose for rejection (rework
+                     needed), blue for question (answer needed). The
+                     prompt body is the originating rejection comment
+                     OR the originating question comment. -->
+                <template x-if="openIssue && openIssue.status === 'clarifications'">
+                  <div class="rounded-lg border-l-4 p-3"
+                       :class="$store.app.clarificationKind(openIssue) === 'question'
+                               ? 'bg-blue-50 border-blue-500'
+                               : 'bg-rose-50 border-rose-500'">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <span class="text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full"
+                            :class="$store.app.clarificationKind(openIssue) === 'question'
+                                    ? 'bg-blue-200 text-blue-900'
+                                    : 'bg-rose-200 text-rose-900'"
+                            x-text="$store.app.clarificationKind(openIssue) === 'question' ? 'Question' : 'Rejection'"></span>
+                      <span class="text-xs font-medium"
+                            :class="$store.app.clarificationKind(openIssue) === 'question' ? 'text-blue-900' : 'text-rose-900'">
+                        Waiting on
+                        <strong x-text="$store.app.roleLabel(openIssue.clarification_target_role || 'anyone')"></strong>
+                        <template x-if="openIssue.clarification_target_team">
+                          <span> on <strong x-text="openIssue.clarification_target_team"></strong></span>
+                        </template>
+                      </span>
+                    </div>
+                    <template x-if="$store.app.latestClarificationPrompt(openIssue)">
+                      <div>
+                        <div class="text-[11px]"
+                             :class="$store.app.clarificationKind(openIssue) === 'question' ? 'text-blue-700' : 'text-rose-700'">
+                          From
+                          <span x-text="$store.app.roleLabel($store.app.latestClarificationPrompt(openIssue).author_role_at_post || 'anyone')"></span>
+                          <template x-if="$store.app.latestClarificationPrompt(openIssue).author_team_at_post">
+                            <span> · <span x-text="$store.app.latestClarificationPrompt(openIssue).author_team_at_post"></span></span>
+                          </template>
+                          · <span x-text="$store.app.relativeTime($store.app.latestClarificationPrompt(openIssue).created_at)"></span>
+                        </div>
+                        <div class="mt-1 text-sm whitespace-pre-wrap"
+                             :class="$store.app.clarificationKind(openIssue) === 'question' ? 'text-blue-900' : 'text-rose-900'"
+                             x-text="$store.app.latestClarificationPrompt(openIssue).body"></div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <!-- Badges. Team is promoted to a prominent color-coded badge so
+                     developers (and simulating facilitators) see at a glance which
+                     team owns the ticket. -->
                 <div class="flex flex-wrap gap-2 items-center">
-                  <template x-if="openIssue.team">
-                    <span
-                      class="text-sm px-3 py-1 rounded-full font-semibold"
-                      :class="$store.app.teamColor(openIssue.team)">
-                      <span x-text="openIssue.team"></span>
-                    </span>
+                  <template x-if="openIssue?.team">
+                    <span class="text-sm px-3 py-1 rounded-full font-semibold"
+                          :class="$store.app.teamColor(openIssue?.team)"
+                          x-text="openIssue?.team"></span>
                   </template>
-                  <template x-if="!openIssue.team">
+                  <template x-if="!openIssue?.team">
                     <span class="text-sm px-3 py-1 rounded-full bg-slate-200 text-slate-600 italic">Unclaimed</span>
                   </template>
-                  <span
-                    class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700"
-                    x-text="$store.app.columnLabel(openIssue.status)"></span>
-                  <span
-                    class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800"
-                    x-text="'Price: $' + openIssue.price"></span>
-                  <span
-                    class="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-700"
-                    x-text="'Batch: ' + $store.app.progressFor(openIssue).done + '/' + openIssue.batch_size"></span>
-                  <template x-if="openIssue.containerized">
+                  <span class="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800"
+                        x-text="'Price: $' + (openIssue?.price || 0)"></span>
+                  <span class="text-xs px-2 py-1 rounded-full bg-slate-200 text-slate-700"
+                        x-text="'Batch: ' + $store.app.progressFor(openIssue).done + '/' + (openIssue?.batch_size || 0)"></span>
+                  <template x-if="openIssue?.containerized">
                     <span class="text-xs px-2 py-1 rounded-full bg-cyan-100 text-cyan-800">Containerized</span>
+                  </template>
+                  <template x-if="openIssue?.code_freeze">
+                    <span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-900">Code Freeze</span>
+                  </template>
+                  <template x-if="openIssue?.stopped">
+                    <span class="text-xs px-2 py-1 rounded-full bg-rose-100 text-rose-900">Stopped</span>
                   </template>
                 </div>
 
-                <!-- Facilitator-only: if this issue belongs to a team and the
-                   facilitator is not currently simulating that team, offer a
-                   one-click switch so they can act on the ticket without
-                   reaching for the footer picker. Silent for everyone else. -->
-                <template
-                  x-if="$store.app.isFacilitator() && openIssue.team && $store.app.effectiveTeam() !== openIssue.team">
-                  <div
-                    class="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between gap-2">
-                    <span>
-                      This ticket belongs to
-                      <strong x-text="openIssue.team"></strong>
-                      . You are currently simulating
-                      <strong x-text="$store.app.effectiveTeam() || '(no team)'"></strong>
-                      .
-                    </span>
-                    <button
-                      @click="$store.app.setImpersonation({ team: openIssue.team })"
-                      class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap">
-                      Simulate as
-                      <span x-text="openIssue.team"></span>
-                    </button>
-                  </div>
-                </template>
-
-                <!-- Description URL -->
-                <template x-if="openIssue.description_url">
-                  <div>
-                    <div class="text-xs text-slate-500 mb-1">Colouring page</div>
-                    <a
-                      :href="openIssue.description_url"
-                      target="_blank"
-                      rel="noopener"
-                      class="text-sky-600 underline break-all text-sm"
-                      x-text="openIssue.description_url"></a>
-                  </div>
-                </template>
-
-                <!-- Feedback reason -->
-                <template x-if="openIssue.feedback_reason">
-                  <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-sm">
-                    <div class="font-medium text-rose-900">Rejection reason</div>
-                    <div class="text-rose-800 mt-1" x-text="openIssue.feedback_reason"></div>
-                  </div>
-                </template>
-
-                <!-- Tasks list -->
-                <div>
-                  <h3 class="text-sm font-semibold mb-2">Tasks</h3>
-                  <div class="space-y-2">
-                    <template x-for="task in $store.app.tasksForIssue(openIssue.id)" :key="task.id">
-                      <div class="p-3 rounded-lg border border-slate-200 bg-slate-50">
-                        <div class="flex items-center justify-between gap-2 text-xs">
-                          <span class="font-mono text-slate-500">
-                            Task #
-                            <span x-text="task.id"></span>
-                            ·
-                            <span x-text="task.assignee_token"></span>
-                            <template x-if="task.containerized">
-                              <span class="ml-2 px-1.5 py-0.5 bg-cyan-100 text-cyan-800 rounded">container</span>
-                            </template>
-                          </span>
-                          <span
-                            class="px-2 py-0.5 rounded-full"
-                            :class="task.status === 'complete' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
-                            x-text="task.status"></span>
-                        </div>
-                        <!-- Attachment shown if complete. Image renders inline
-                             as a thumbnail; clicking opens the full-size image
-                             in a new tab. -->
-                        <template x-if="task.attachment_url">
-                          <a :href="task.attachment_url" target="_blank" rel="noopener" class="block mt-2">
-                            <img
-                              :src="task.attachment_url"
-                              alt="Task attachment"
-                              class="max-h-48 max-w-full rounded border border-slate-200" />
-                          </a>
-                        </template>
-                        <!-- Complete-task uploader (owner only). Drag-and-drop
-                             AND click-to-browse, with thumbnail preview before
-                             upload and an in-progress button state. The
-                             whole drop zone is a <label> wrapping a hidden
-                             <input type="file">, so clicking anywhere on it
-                             opens the OS file picker; on iOS/Android the
-                             accept="image/*" attribute also surfaces the
-                             camera as one of the source options. -->
-                        <template x-if="task.assignee_token === $store.app.user.token && task.status === 'claimed'">
-                          <div
-                            class="mt-3"
-                            x-data="{
-                              localFile: null,
-                              localPreview: null,
-                              isDragging: false,
-                              isUploading: false,
-                              pickFile(file) {
-                                if (!file) return;
-                                if (!file.type || !file.type.startsWith('image/')) {
-                                  $store.app.toast('Please choose an image file.');
-                                  return;
-                                }
-                                if (file.size > 10 * 1024 * 1024) {
-                                  $store.app.toast('Image is over 10 MB. Please choose a smaller file.');
-                                  return;
-                                }
-                                if (this.localPreview) URL.revokeObjectURL(this.localPreview);
-                                this.localFile = file;
-                                this.localPreview = URL.createObjectURL(file);
-                              },
-                              clearFile() {
-                                if (this.localPreview) URL.revokeObjectURL(this.localPreview);
-                                this.localFile = null;
-                                this.localPreview = null;
-                              }
-                            }">
-                            <!-- Drop zone: <label> so the entire area opens the
-                                 file picker on click. Drag handlers must call
-                                 preventDefault() on dragover so the drop event
-                                 actually fires. -->
-                            <label
-                              class="block border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors text-center"
-                              :class="isDragging ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'"
-                              @dragover.prevent="isDragging = true"
-                              @dragenter.prevent="isDragging = true"
-                              @dragleave.prevent="isDragging = false"
-                              @drop.prevent="
-                                isDragging = false;
-                                if ($event.dataTransfer && $event.dataTransfer.files && $event.dataTransfer.files[0]) {
-                                  pickFile($event.dataTransfer.files[0]);
-                                }
-                              ">
-                              <!-- Empty state -->
-                              <template x-if="!localFile">
-                                <div class="text-sm text-slate-600 py-2 pointer-events-none">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="w-8 h-8 mx-auto mb-2 text-slate-400"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    aria-hidden="true">
-                                    <path
-                                      stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                  <div class="font-medium text-slate-700 mb-1">
-                                    Drop your finished image here, or
-                                    <span class="text-sky-600 underline">click to browse</span>
-                                  </div>
-                                  <div class="text-xs text-slate-500">PNG, JPG, GIF, WebP, HEIC. Up to 10 MB.</div>
-                                </div>
-                              </template>
-                              <!-- Selected-file preview -->
-                              <template x-if="localFile">
-                                <div class="flex items-center gap-3 text-left">
-                                  <img
-                                    :src="localPreview"
-                                    alt="Selected image preview"
-                                    class="w-16 h-16 object-cover rounded border border-slate-200 flex-shrink-0" />
-                                  <div class="min-w-0 flex-1">
-                                    <div class="text-sm font-medium text-slate-800 truncate" x-text="localFile.name"></div>
-                                    <div
-                                      class="text-xs text-slate-500"
-                                      x-text="(localFile.size / 1024).toFixed(0) + ' KB'"></div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    @click.prevent.stop="clearFile()"
-                                    class="px-2 py-1 text-xs text-slate-600 hover:text-rose-700 underline flex-shrink-0"
-                                    aria-label="Remove selected file">
-                                    Remove
-                                  </button>
-                                </div>
-                              </template>
-                              <!-- Hidden native input. Resetting value on
-                                   change so picking the same file twice
-                                   still triggers the change event. -->
-                              <input
-                                type="file"
-                                accept="image/*"
-                                class="sr-only"
-                                aria-label="Choose image file"
-                                @change="
-                                  pickFile($event.target.files && $event.target.files[0]);
-                                  $event.target.value = '';
-                                " />
-                            </label>
-                            <!-- Upload action: visible only after a file is
-                                 selected. Button text and disabled state
-                                 reflect upload progress. completeTask returns
-                                 true on success so we clear the picker; on
-                                 failure we leave the file selected so the
-                                 user can read the error toast and retry. -->
-                            <template x-if="localFile">
-                              <button
-                                type="button"
-                                :disabled="isUploading"
-                                @click="
-                                  isUploading = true;
-                                  const ok = await $store.app.completeTask(task, localFile);
-                                  isUploading = false;
-                                  if (ok) clearFile();
-                                "
-                                class="mt-2 w-full sm:w-auto px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed">
-                                <span x-show="!isUploading">Upload &amp; mark complete</span>
-                                <span x-show="isUploading">Uploading...</span>
-                              </button>
-                            </template>
-                          </div>
-                        </template>
-                      </div>
-                    </template>
-                    <template x-if="$store.app.tasksForIssue(openIssue.id).length === 0">
-                      <div class="text-sm text-slate-500 italic">No tasks yet.</div>
-                    </template>
-                  </div>
-
-                  <!-- Add task (Developer, in_progress, on the assigned team) -->
-                  <template x-if="$store.app.canAct(openIssue, 'add_task')">
-                    <div class="mt-3 p-3 rounded-lg border border-dashed border-slate-300">
-                      <template x-if="$store.app.gameState.current_sprint >= 3">
-                        <label class="flex items-center gap-2 text-sm mb-2">
-                          <input type="checkbox" x-model="newTaskContainerized" />
-                          <span>Mark this task as Containerized</span>
-                        </label>
-                      </template>
-                      <button
-                        @click="$store.app.createTask(openIssue, { containerized: newTaskContainerized }); newTaskContainerized = false"
-                        class="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white text-sm rounded hover:bg-slate-800 min-h-[44px]">
-                        + Claim a Task
-                      </button>
+                <!-- Description URL + Acceptance Criteria -->
+                <div class="space-y-3 text-sm">
+                  <template x-if="openIssue?.description_url">
+                    <div>
+                      <div class="text-xs text-slate-500 mb-1">Colouring page</div>
+                      <a :href="openIssue?.description_url" target="_blank" rel="noopener"
+                         class="text-sky-600 underline hover:text-sky-700 break-all" x-text="openIssue?.description_url"></a>
+                    </div>
+                  </template>
+                  <template x-if="openIssue?.acceptance_criteria">
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <div class="text-xs text-slate-500 font-medium mb-1">Acceptance Criteria</div>
+                      <div class="text-slate-800 whitespace-pre-wrap" x-text="openIssue?.acceptance_criteria"></div>
                     </div>
                   </template>
                 </div>
 
-                <!-- Security check panel (Security role, in security column) -->
-                <template x-if="$store.app.canAct(openIssue, 'run_security')">
-                  <div class="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                    <h3 class="text-sm font-semibold text-indigo-900">Security Check</h3>
-                    <template
-                      x-if="!$store.app.securityCheckResult || $store.app.securityCheckResult.issue_id !== openIssue.id">
-                      <button
-                        @click="$store.app.runSecurityCheck(openIssue)"
-                        class="mt-2 w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 min-h-[44px]">
-                        Run Security Check
-                      </button>
-                    </template>
-                    <template
-                      x-if="$store.app.securityCheckResult && $store.app.securityCheckResult.issue_id === openIssue.id">
-                      <div class="mt-2 text-sm">
-                        <template x-if="$store.app.securityCheckResult.has_flaw">
-                          <div class="p-2 rounded bg-rose-100 text-rose-900 font-medium">
-                            Flaw detected
-                            <span class="font-normal">
-                              (source:
-                              <span x-text="$store.app.securityCheckResult.source"></span>
-                              )
-                            </span>
-                          </div>
-                        </template>
-                        <template x-if="!$store.app.securityCheckResult.has_flaw">
-                          <div class="p-2 rounded bg-emerald-100 text-emerald-900 font-medium">Clean</div>
-                        </template>
-                      </div>
-                    </template>
-                  </div>
-                </template>
-
-                <!-- Reject reason form (Security or Business) -->
-                <template x-if="showReject">
-                  <div class="p-3 rounded-lg bg-rose-50 border border-rose-200">
-                    <label class="block text-sm font-medium mb-1">Rejection reason</label>
-                    <input
-                      x-model="rejectReason"
-                      type="text"
-                      placeholder="e.g. Missing colour, security flaw"
-                      class="w-full px-3 py-2 text-sm border border-slate-300 rounded" />
-                  </div>
-                </template>
-
-                <!-- Action buttons -->
-                <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-2 border-t border-slate-200">
-                  <template x-if="$store.app.canAct(openIssue, 'claim')">
+                <!-- Facilitator-only: when viewing a card belonging to a team
+                     the facilitator is not currently simulating, offer a
+                     one-click team switch so they can act on the ticket
+                     without reaching for the bottom picker. Silent for
+                     everyone else (including a facilitator already on the
+                     right team and observe-only mode). -->
+                <template
+                  x-if="$store.app.isFacilitator() && openIssue?.team && $store.app.effectiveTeam() !== openIssue?.team">
+                  <div class="p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 flex items-center justify-between gap-2 flex-wrap">
+                    <span>
+                      This ticket belongs to <strong x-text="openIssue?.team"></strong>.
+                      You are currently
+                      <template x-if="$store.app.impersonation.role">
+                        <span>simulating <strong x-text="$store.app.effectiveTeam() || '(no team)'"></strong></span>
+                      </template>
+                      <template x-if="!$store.app.impersonation.role">
+                        <span>in observe-only mode</span>
+                      </template>.
+                    </span>
                     <button
-                      @click="$store.app.claimIssue(openIssue)"
-                      class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]">
-                      Claim for
-                      <span x-text="$store.app.effectiveTeam() || '(pick a team in the footer)'"></span>
+                      @click="$store.app.setImpersonation({team: openIssue?.team})"
+                      class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 whitespace-nowrap">
+                      Simulate as <span x-text="openIssue?.team"></span>
+                    </button>
+                  </div>
+                </template>
+
+                <!-- Action buttons row. Stacked on mobile, wrapped on
+                     desktop. Top border separates from card metadata above.
+                     min-h-[44px] meets the iOS/Android touch target spec. -->
+                <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-3 border-t border-slate-200">
+                  <template x-if="$store.app.canAct(openIssue, 'claim')">
+                    <button @click="$store.app.claimIssue(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-700 min-h-[44px]">
+                      Claim for <span x-text="$store.app.effectiveTeam() || '(no team)'"></span>
                     </button>
                   </template>
-
                   <template x-if="$store.app.canAct(openIssue, 'send_to_testing')">
-                    <button
-                      @click="$store.app.sendToTesting(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-sky-600 text-white text-sm font-medium rounded hover:bg-sky-700 min-h-[44px]">
+                    <button @click="$store.app.sendToTesting(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-700 min-h-[44px]">
                       Send to Testing
                     </button>
                   </template>
-
                   <template x-if="$store.app.canAct(openIssue, 'pass_testing')">
-                    <button
-                      @click="$store.app.passTesting(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
+                    <button @click="$store.app.passTesting(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 min-h-[44px]">
                       Pass Testing
                     </button>
                   </template>
                   <template x-if="$store.app.canAct(openIssue, 'fail_testing')">
-                    <button
-                      @click="$store.app.failTesting(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]">
+                    <button @click="rejectFor = 'testing'"
+                            class="px-4 py-3 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 min-h-[44px]">
                       Fail Testing
                     </button>
                   </template>
-
+                  <template x-if="$store.app.canAct(openIssue, 'run_security') && (!$store.app.securityCheckResult || $store.app.securityCheckResult.issue_id !== openIssue?.id)">
+                    <button @click="$store.app.runSecurityCheck(openIssue)"
+                            class="px-4 py-3 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 min-h-[44px]">
+                      Run Security Check
+                    </button>
+                  </template>
                   <template x-if="$store.app.canAct(openIssue, 'pass_security')">
-                    <button
-                      @click="$store.app.passSecurity(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
-                      Pass Security
+                    <button @click="$store.app.passSecurity(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 min-h-[44px]">
+                      Pass Security → To Deploy
                     </button>
                   </template>
                   <template x-if="$store.app.canAct(openIssue, 'reject_security')">
-                    <button
-                      @click="showReject ? ($store.app.rejectSecurity(openIssue, rejectReason), openIssue = null) : (showReject = true)"
-                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]">
-                      <span x-text="showReject ? 'Confirm Reject' : 'Reject (Security)'"></span>
+                    <button @click="rejectFor = 'security'"
+                            class="px-4 py-3 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 min-h-[44px]">
+                      Reject Security
                     </button>
                   </template>
-
                   <template x-if="$store.app.canAct(openIssue, 'deploy')">
-                    <button
-                      @click="$store.app.deploy(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
-                      Deploy to Production
+                    <button @click="$store.app.deploy(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 min-h-[44px]">
+                      Deploy
                     </button>
                   </template>
-
+                  <template x-if="openIssue?.status === 'to_deploy' && openIssue?.code_freeze && $store.app.effectiveRole() === 'sysadmin'">
+                    <span class="px-4 py-3 bg-slate-200 text-slate-500 rounded-lg text-sm font-medium min-h-[44px] flex items-center">Deploy blocked: code freeze</span>
+                  </template>
                   <template x-if="$store.app.canAct(openIssue, 'accept_production')">
-                    <button
-                      @click="$store.app.acceptProduction(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px]">
+                    <button @click="$store.app.acceptProduction(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 min-h-[44px]">
                       Accept
                     </button>
                   </template>
                   <template x-if="$store.app.canAct(openIssue, 'reject_production')">
-                    <button
-                      @click="showReject ? ($store.app.rejectProduction(openIssue, rejectReason), openIssue = null) : (showReject = true)"
-                      class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded hover:bg-rose-700 min-h-[44px]">
-                      <span x-text="showReject ? 'Confirm Reject' : 'Reject to Feedback'"></span>
+                    <button @click="rejectFor = 'production'"
+                            class="px-4 py-3 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 min-h-[44px]">
+                      Reject
                     </button>
                   </template>
-
-                  <template x-if="$store.app.canAct(openIssue, 'pickup_feedback')">
-                    <button
-                      @click="$store.app.pickupFeedback(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-slate-900 text-white text-sm font-medium rounded hover:bg-slate-800 min-h-[44px]">
-                      Pick up for rework
+                  <!-- Pick up for REWORK: shown only when this is a
+                       rejection clarification AND the user is the target.
+                       One-click; no body required. -->
+                  <template x-if="$store.app.canAct(openIssue, 'pickup_clarification')">
+                    <button @click="$store.app.pickupClarification(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-700 min-h-[44px]">
+                      Pick up for rework → In Progress
                     </button>
                   </template>
-
-                  <!-- HACKER ACTION: only visible to hackers in Sprint 2+, on non-containerized items -->
+                  <!-- ANSWER a question: shown only when this is a
+                       question clarification AND the user is the target.
+                       Opens an answer form rather than acting in-place. -->
+                  <template x-if="$store.app.canAct(openIssue, 'answer_question')">
+                    <button @click="answerOpen = true"
+                            class="px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 min-h-[44px]">
+                      Send response →
+                      <span x-text="$store.app.columnLabel(openIssue?.pre_clarification_status || 'in_progress')"></span>
+                    </button>
+                  </template>
+                  <!-- ASK a question: shown on any card the user can ask
+                       on (any pipeline state except clarifications-question
+                       and accepted; rejected dev can also ask the rejecter
+                       back). Opens an ask form. -->
+                  <template x-if="$store.app.canAct(openIssue, 'ask_question')">
+                    <button @click="askOpen = true"
+                            class="px-4 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 min-h-[44px]">
+                      Ask a question
+                    </button>
+                  </template>
+                  <template x-if="$store.app.canAct(openIssue, 'toggle_code_freeze')">
+                    <button @click="$store.app.toggleCodeFreeze(openIssue)"
+                            class="px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 min-h-[44px]"
+                            x-text="openIssue?.code_freeze ? 'Lift Code Freeze' : 'Set Code Freeze'"></button>
+                  </template>
                   <template x-if="$store.app.canAct(openIssue, 'inject_flaw')">
-                    <button
-                      @click="$store.app.injectFlaw(openIssue); openIssue = null"
-                      class="px-4 py-3 bg-slate-800 text-slate-100 text-sm font-medium rounded hover:bg-slate-900 min-h-[44px]">
+                    <button @click="$store.app.injectFlaw(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-fuchsia-700 text-white rounded-lg text-sm font-medium hover:bg-fuchsia-800 min-h-[44px]">
                       Inject Flaw
                     </button>
                   </template>
+                  <template x-if="$store.app.canAct(openIssue, 'stop_container')">
+                    <button @click="$store.app.stopContainer(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-rose-700 text-white rounded-lg text-sm font-medium hover:bg-rose-800 min-h-[44px]">
+                      Stop Container
+                    </button>
+                  </template>
+                  <template x-if="$store.app.canAct(openIssue, 'restart_container')">
+                    <button @click="$store.app.restartContainer(openIssue); openIssue = null"
+                            class="px-4 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 min-h-[44px]">
+                      Restart Container
+                    </button>
+                  </template>
+                  <template x-if="$store.app.canAct(openIssue, 'shift_left_check')">
+                    <button @click="$store.app.runShiftLeftCheck(openIssue)"
+                            class="px-4 py-3 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 min-h-[44px]">
+                      Shift-Left Security Check
+                    </button>
+                  </template>
+                  <template x-if="$store.app.canAct(openIssue, 'delete_issue') || $store.app.isFacilitatorView()">
+                    <button @click="if (confirm('Delete this card?')) { $store.app.deleteIssue(openIssue); openIssue = null }"
+                            class="sm:ml-auto px-4 py-3 border border-rose-300 text-rose-700 rounded-lg text-sm font-medium hover:bg-rose-50 min-h-[44px]">
+                      Delete card
+                    </button>
+                  </template>
+                </div>
+
+                <!-- Security check / shift-left result panel -->
+                <template x-if="$store.app.securityCheckResult && $store.app.securityCheckResult.issue_id === openIssue?.id">
+                  <div class="rounded-lg p-3 text-sm"
+                       :class="$store.app.securityCheckResult.flawed ? 'bg-rose-50 border border-rose-300 text-rose-900' : 'bg-emerald-50 border border-emerald-300 text-emerald-900'">
+                    <div class="font-semibold" x-text="$store.app.securityCheckResult.flawed ? 'Flaw detected' : 'Clean'"></div>
+                    <div class="text-xs" x-text="'Source: ' + $store.app.securityCheckResult.source"></div>
+                  </div>
+                </template>
+                <template x-if="$store.app.shiftLeftResult && $store.app.shiftLeftResult.issue_id === openIssue?.id">
+                  <div class="rounded-lg p-3 text-sm border"
+                       :class="$store.app.shiftLeftResult.flawed ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-emerald-50 border-emerald-300 text-emerald-900'">
+                    <div class="font-semibold">
+                      Shift-left: <span x-text="$store.app.shiftLeftResult.flawed ? 'Flaw detected' : 'Clean'"></span>
+                    </div>
+                    <div class="text-xs" x-text="'Source: ' + $store.app.shiftLeftResult.source"></div>
+                  </div>
+                </template>
+
+                <!-- ASK A QUESTION form. Sends the card to the
+                     Clarifications column targeting the chosen role/team
+                     with kind='question'. The card returns to the asker's
+                     column when the target answers. -->
+                <template x-if="askOpen">
+                  <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-3">
+                    <div class="flex items-baseline justify-between gap-2 flex-wrap">
+                      <label class="block text-sm font-medium text-indigo-900">
+                        Ask a question
+                      </label>
+                      <span class="text-xs text-indigo-700">
+                        Card moves to Clarifications. Returns to
+                        <strong x-text="$store.app.columnLabel(openIssue?.status || 'in_progress')"></strong>
+                        when answered.
+                      </span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-xs text-indigo-800 mb-1">Ask which role?</label>
+                        <select x-model="askTargetRole"
+                                @change="if (askTargetRole === 'business') askTargetTeam = ''; else if (openIssue?.team) askTargetTeam = openIssue.team;"
+                                class="w-full text-sm px-3 py-2 border border-indigo-300 rounded-lg bg-white">
+                          <option value="">Pick a role...</option>
+                          <option value="business">Business</option>
+                          <option value="developer">Developer</option>
+                          <option value="tester">Tester</option>
+                          <option value="security">Security</option>
+                          <option value="sysadmin">SysAdmin</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-xs text-indigo-800 mb-1">
+                          On which team?
+                          <span class="text-indigo-600" x-show="askTargetRole === 'business'">(Business is cross-team)</span>
+                        </label>
+                        <select x-model="askTargetTeam"
+                                :disabled="askTargetRole === 'business' || !askTargetRole"
+                                class="w-full text-sm px-3 py-2 border border-indigo-300 rounded-lg bg-white disabled:bg-slate-100">
+                          <option value="">(any team)</option>
+                          <template x-for="t in $store.app.allTeams()" :key="t">
+                            <option :value="t" x-text="t"></option>
+                          </template>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block text-xs text-indigo-800 mb-1">Your question</label>
+                      <textarea x-model="askBody" rows="3" required
+                                x-init="$nextTick(() => $el.focus())"
+                                placeholder="e.g. The acceptance criteria say 'colourful' but the page is mostly outlines — should I add background colours?"
+                                class="w-full text-sm px-3 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <button @click="
+                        if (!askTargetRole) { $store.app.toast('Pick a role to ask.'); return; }
+                        if (!askBody.trim()) { $store.app.toast('Please write your question.'); return; }
+                        $store.app.askQuestion(openIssue, askTargetRole, askTargetTeam || null, askBody);
+                        askOpen = false; askTargetRole = ''; askTargetTeam = ''; askBody = ''; openIssue = null;"
+                              class="px-4 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 min-h-[44px]">
+                        Send question
+                      </button>
+                      <button @click="askOpen = false; askTargetRole = ''; askTargetTeam = ''; askBody = ''"
+                              class="px-4 py-3 border border-slate-300 text-sm font-medium rounded-lg hover:bg-slate-50 min-h-[44px]">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ANSWER A QUESTION form. The targeted role writes a
+                     reply; the card returns to the asker's column on
+                     submit. Differs from Pick up for rework: an answer
+                     body is required, and the return target is the
+                     asker's pre_clarification_status (not in_progress). -->
+                <template x-if="answerOpen">
+                  <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                    <div class="flex items-baseline justify-between gap-2 flex-wrap">
+                      <label class="block text-sm font-medium text-blue-900">
+                        Send your response
+                      </label>
+                      <span class="text-xs text-blue-700">
+                        Card returns to
+                        <strong x-text="$store.app.columnLabel(openIssue?.pre_clarification_status || 'in_progress')"></strong>
+                      </span>
+                    </div>
+                    <textarea x-model="answerBody" rows="4" required
+                              x-init="$nextTick(() => $el.focus())"
+                              placeholder="Write your answer to the question above..."
+                              class="w-full text-sm px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <button @click="
+                        if (!answerBody.trim()) { $store.app.toast('Please write your answer.'); return; }
+                        $store.app.answerQuestion(openIssue, answerBody);
+                        answerOpen = false; answerBody = ''; openIssue = null;"
+                              class="px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 min-h-[44px]">
+                        Send response
+                      </button>
+                      <button @click="answerOpen = false; answerBody = ''"
+                              class="px-4 py-3 border border-slate-300 text-sm font-medium rounded-lg hover:bg-slate-50 min-h-[44px]">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Reject reason form. Posts the reason as a rejection
+                     comment on the card and routes it to Clarifications. -->
+                <template x-if="rejectFor">
+                  <div class="bg-rose-50 border border-rose-200 rounded-lg p-4 space-y-3">
+                    <label class="block text-sm font-medium text-rose-900">
+                      Rejection reason
+                      <span class="text-xs font-normal text-rose-700">(posted as a comment so the next person knows what to fix)</span>
+                    </label>
+                    <textarea x-model="rejectReason" rows="3" required
+                              x-init="$nextTick(() => $el.focus())"
+                              placeholder="e.g. Missing tasks, tester found wrong drawing, security flaw in card..."
+                              class="w-full text-sm px-3 py-2 border border-rose-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"></textarea>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <button @click="
+                        if (!rejectReason.trim()) { $store.app.toast('Please give a reason.'); return; }
+                        if (rejectFor === 'testing') $store.app.failTesting(openIssue, rejectReason);
+                        else if (rejectFor === 'security') $store.app.rejectSecurity(openIssue, rejectReason);
+                        else if (rejectFor === 'production') $store.app.rejectProduction(openIssue, rejectReason);
+                        rejectFor = null; rejectReason = ''; openIssue = null;"
+                              class="px-4 py-3 bg-rose-600 text-white text-sm font-medium rounded-lg hover:bg-rose-700 min-h-[44px]">
+                        Confirm rejection
+                      </button>
+                      <button @click="rejectFor = null; rejectReason = ''"
+                              class="px-4 py-3 border border-slate-300 text-sm font-medium rounded-lg hover:bg-slate-50 min-h-[44px]">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Edit form for Business (collapsible) -->
+                <template x-if="$store.app.canAct(openIssue, 'edit_issue')">
+                  <details class="bg-slate-50 border border-slate-200 rounded-lg">
+                    <summary class="cursor-pointer px-3 py-2 text-sm font-medium hover:bg-slate-100 rounded-t-lg">Edit card</summary>
+                    <div x-data="{draft: {title: openIssue?.title || '', description_url: openIssue?.description_url || '', price: openIssue?.price || 0, batch_size: openIssue?.batch_size || 1, acceptance_criteria: openIssue?.acceptance_criteria || ''}}"
+                         class="p-3 space-y-2 text-sm border-t border-slate-200">
+                      <input x-model="draft.title" placeholder="Title" class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      <input x-model="draft.description_url" placeholder="Colouring page URL" class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                      <div class="grid grid-cols-2 gap-2">
+                        <input x-model.number="draft.price" type="number" min="0" placeholder="Price" class="px-3 py-2 border border-slate-300 rounded-lg" />
+                        <input x-model.number="draft.batch_size" type="number" min="1" placeholder="Batch size" class="px-3 py-2 border border-slate-300 rounded-lg" />
+                      </div>
+                      <textarea x-model="draft.acceptance_criteria" rows="3" placeholder="Acceptance criteria"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+                      <button @click="$store.app.editIssue(openIssue?.id, draft); openIssue = null"
+                              class="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 min-h-[40px]">Save</button>
+                    </div>
+                  </details>
+                </template>
+
+                <!-- Tasks list (developer view) -->
+                <template x-if="['in_progress','testing','security','to_deploy','in_production','accepted'].includes(openIssue?.status)">
+                  <div>
+                    <div class="flex items-baseline justify-between mb-2">
+                      <h3 class="text-sm font-semibold">Tasks</h3>
+                      <span class="text-xs text-slate-500"
+                            x-text="$store.app.progressFor(openIssue).done + ' / ' + openIssue?.batch_size + ' complete'"></span>
+                    </div>
+                    <div class="space-y-2">
+                      <template x-for="task in $store.app.tasksForIssue(openIssue?.id)" :key="task.id">
+                        <div class="p-3 rounded-lg border border-slate-200 bg-slate-50">
+                          <div class="flex items-center justify-between gap-2 text-xs">
+                            <span class="font-mono text-slate-500">
+                              Task #<span x-text="task.id"></span>
+                              <span class="ml-1 text-slate-400">·</span>
+                              <span x-text="($store.app.userByToken(task.assignee_token) || {}).display_name || task.assignee_token"></span>
+                              <template x-if="task.containerized">
+                                <span class="ml-2 px-1.5 py-0.5 bg-cyan-100 text-cyan-800 rounded">container</span>
+                              </template>
+                            </span>
+                            <span class="flex items-center gap-2">
+                              <span class="px-2 py-0.5 rounded-full"
+                                    :class="task.status === 'complete' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
+                                    x-text="task.status"></span>
+                              <template x-if="task.status !== 'complete' && (task.assignee_token === $store.app.user.token || $store.app.isFacilitatorView())">
+                                <button @click="if (confirm('Delete task?')) $store.app.deleteTask(task)"
+                                        class="text-rose-600 hover:text-rose-800 text-base leading-none px-1"
+                                        title="Delete this task">&times;</button>
+                              </template>
+                            </span>
+                          </div>
+
+                          <!-- Inline thumbnail when complete. Click opens the
+                               full-size image in a new tab. -->
+                          <template x-if="task.attachment_url">
+                            <a :href="task.attachment_url" target="_blank" rel="noopener" class="block mt-2">
+                              <img :src="task.attachment_url"
+                                   alt="Task attachment"
+                                   class="max-h-48 max-w-full rounded border border-slate-200" />
+                            </a>
+                          </template>
+
+                          <!-- Drag-drop + click-to-browse uploader. Only the task
+                               assignee in in_progress sees this. The whole drop
+                               zone is a <label> wrapping a hidden file input so a
+                               click anywhere opens the OS file picker. accept
+                               image/* surfaces the camera on iOS/Android. -->
+                          <template x-if="task.status === 'claimed' && task.assignee_token === $store.app.user.token && openIssue?.status === 'in_progress'">
+                            <div class="mt-3"
+                                 x-data="{
+                                   localFile: null,
+                                   localPreview: null,
+                                   isDragging: false,
+                                   isUploading: false,
+                                   pickFile(file) {
+                                     if (!file) return;
+                                     if (!file.type || !file.type.startsWith('image/')) {
+                                       $store.app.toast('Please choose an image file.');
+                                       return;
+                                     }
+                                     if (file.size > 10 * 1024 * 1024) {
+                                       $store.app.toast('Image is over 10 MB. Please choose a smaller file.');
+                                       return;
+                                     }
+                                     if (this.localPreview) URL.revokeObjectURL(this.localPreview);
+                                     this.localFile = file;
+                                     this.localPreview = URL.createObjectURL(file);
+                                   },
+                                   clearFile() {
+                                     if (this.localPreview) URL.revokeObjectURL(this.localPreview);
+                                     this.localFile = null;
+                                     this.localPreview = null;
+                                   }
+                                 }">
+                              <label
+                                class="block border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors text-center"
+                                :class="isDragging ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'"
+                                @dragover.prevent="isDragging = true"
+                                @dragenter.prevent="isDragging = true"
+                                @dragleave.prevent="isDragging = false"
+                                @drop.prevent="isDragging = false; if ($event.dataTransfer && $event.dataTransfer.files && $event.dataTransfer.files[0]) pickFile($event.dataTransfer.files[0]);">
+                                <template x-if="!localFile">
+                                  <div class="text-sm text-slate-600 py-2 pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         class="w-8 h-8 mx-auto mb-2 text-slate-400"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <div class="font-medium text-slate-700 mb-1">
+                                      Drop your finished image here, or
+                                      <span class="text-sky-600 underline">click to browse</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500">PNG, JPG, GIF, WebP, HEIC. Up to 10 MB.</div>
+                                  </div>
+                                </template>
+                                <template x-if="localFile">
+                                  <div class="flex items-center gap-3 text-left">
+                                    <img :src="localPreview"
+                                         alt="Selected image preview"
+                                         class="w-16 h-16 object-cover rounded border border-slate-200 flex-shrink-0" />
+                                    <div class="min-w-0 flex-1">
+                                      <div class="text-sm font-medium text-slate-800 truncate" x-text="localFile.name"></div>
+                                      <div class="text-xs text-slate-500"
+                                           x-text="(localFile.size / 1024).toFixed(0) + ' KB'"></div>
+                                    </div>
+                                    <button type="button"
+                                            @click.prevent.stop="clearFile()"
+                                            class="px-2 py-1 text-xs text-slate-600 hover:text-rose-700 underline flex-shrink-0"
+                                            aria-label="Remove selected file">Remove</button>
+                                  </div>
+                                </template>
+                                <input type="file" accept="image/*" class="sr-only"
+                                       aria-label="Choose image file"
+                                       @change="pickFile($event.target.files && $event.target.files[0]); $event.target.value = '';" />
+                              </label>
+                              <template x-if="localFile">
+                                <button type="button"
+                                        :disabled="isUploading"
+                                        @click="
+                                          isUploading = true;
+                                          const ok = await $store.app.completeTask(task, localFile);
+                                          isUploading = false;
+                                          if (ok) clearFile();
+                                        "
+                                        class="mt-2 w-full sm:w-auto px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed">
+                                  <span x-show="!isUploading">Upload &amp; mark complete</span>
+                                  <span x-show="isUploading">Uploading...</span>
+                                </button>
+                              </template>
+                            </div>
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="$store.app.tasksForIssue(openIssue?.id || -1).length === 0">
+                        <div class="text-sm text-slate-500 italic">No tasks yet.</div>
+                      </template>
+                      <template x-if="$store.app.canAct(openIssue, 'add_task')">
+                        <div class="p-3 rounded-lg border border-dashed border-slate-300"
+                             x-data="{containerized: false}">
+                          <template x-if="$store.app.gameState.current_sprint >= 3">
+                            <label class="flex items-center gap-2 text-sm mb-2">
+                              <input type="checkbox" x-model="containerized" />
+                              <span>Mark next task as containerized</span>
+                            </label>
+                          </template>
+                          <button @click="$store.app.createTask(openIssue, {containerized: containerized && $store.app.gameState.current_sprint >= 3}); containerized = false"
+                                  class="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white text-sm rounded hover:bg-slate-800 min-h-[44px]">
+                            + Claim a Task
+                          </button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Comments -->
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-semibold"
+                        x-text="'Comments (' + $store.app.commentCountForIssue(openIssue?.id || -1) + ')'"></h3>
+                    <button @click="$store.app.setCommentOrder(!$store.app.commentSortDesc)"
+                            class="text-xs text-slate-500 hover:text-slate-800 underline"
+                            x-text="$store.app.commentSortDesc ? 'newest first' : 'oldest first'"></button>
+                  </div>
+                  <div class="space-y-2">
+                    <template x-for="c in $store.app.commentsForIssue(openIssue?.id || -1)" :key="c.id">
+                      <div class="bg-white border rounded-lg p-3 text-sm"
+                           :class="c.is_rejection ? 'border-l-4 border-l-rose-500 border-t border-r border-b border-rose-200' : 'border-slate-200'">
+                        <div class="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                          <span class="font-medium text-slate-700" x-text="$store.app.roleLabel(c.author_role_at_post)"></span>
+                          <template x-if="c.author_team_at_post"><span x-text="'· ' + c.author_team_at_post"></span></template>
+                          <span x-text="'· ' + $store.app.relativeTime(c.created_at)"></span>
+                          <template x-if="c.edited_at"><span class="italic text-slate-400">(edited)</span></template>
+                          <template x-if="c.hidden_at && $store.app.isFacilitatorView()">
+                            <span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-semibold">hidden</span>
+                          </template>
+                          <span class="ml-auto flex gap-2"
+                                x-show="$store.app.user && (c.author_token === $store.app.user.token || $store.app.isFacilitatorView())">
+                            <button x-show="c.author_token === $store.app.user.token"
+                                    @click="const v = prompt('Edit comment', c.body); if (v != null) $store.app.editComment(c.id, v)"
+                                    class="text-slate-500 hover:text-slate-800 underline">edit</button>
+                            <button x-show="c.author_token === $store.app.user.token || $store.app.isFacilitatorView()"
+                                    @click="if (confirm('Delete this comment?')) $store.app.deleteComment(c.id)"
+                                    class="text-rose-600 hover:text-rose-800 underline">delete</button>
+                            <template x-if="$store.app.isFacilitatorView() && !c.hidden_at">
+                              <button @click="$store.app.hideCommentByFacilitator(c.id)"
+                                      class="text-amber-700 hover:text-amber-900 underline">hide</button>
+                            </template>
+                            <template x-if="$store.app.isFacilitatorView() && c.hidden_at">
+                              <button @click="$store.app.unhideCommentByFacilitator(c.id)"
+                                      class="text-amber-700 hover:text-amber-900 underline">unhide</button>
+                            </template>
+                          </span>
+                        </div>
+                        <div class="text-slate-800 whitespace-pre-wrap mt-1.5" x-text="c.body"></div>
+                      </div>
+                    </template>
+                    <template x-if="$store.app.commentsForIssue(openIssue?.id || -1).length === 0">
+                      <div class="text-sm text-slate-500 italic">No comments yet.</div>
+                    </template>
+                  </div>
+                  <!-- Composer -->
+                  <div class="mt-3" x-data="{draft: ''}">
+                    <textarea x-model="draft" rows="2"
+                              placeholder="Add a comment. Anyone can comment on any card."
+                              class="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+                    <button @click="if (draft.trim()) { $store.app.postComment(openIssue, draft); draft = ''; }"
+                            :disabled="!draft.trim()"
+                            class="mt-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]">
+                      Post comment
+                    </button>
+                  </div>
                 </div>
               </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- ============================================================
-           HELP MODAL
-           ============================================================ -->
-        <div
-          x-show="helpOpen"
-          x-transition.opacity
-          @keydown.escape.window="helpOpen = false"
-          class="fixed inset-0 bg-black/50 z-40 flex sm:items-center sm:justify-center">
-          <div
-            class="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl overflow-y-auto shadow-2xl p-5 sm:p-8"
-            @click.stop>
-            <div class="flex items-start justify-between mb-4">
-              <h2 class="text-xl font-bold">How to play</h2>
-              <button @click="helpOpen = false" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
-                &times;
-              </button>
-            </div>
-            <div class="prose prose-sm max-w-none">
-              <p>
-                You have been assigned a
-                <strong>role</strong>
-                and (if applicable) a
-                <strong>team</strong>
-                . The board moves Product Requests from Market through to In Production. Each role owns a stage.
-              </p>
-              <h3>Your role</h3>
-              <ul>
-                <li>
-                  <strong>Business</strong>
-                  : Creates Product Requests in Market. Accepts or rejects items in Production.
-                </li>
-                <li>
-                  <strong>Developer</strong>
-                  : Claims requests in In Progress, creates Tasks for each required colouring page, completes them by
-                  uploading the finished image, then Sends to Testing.
-                </li>
-                <li>
-                  <strong>Tester</strong>
-                  : Passes or fails requests in Testing by visual inspection of the attached images.
-                </li>
-                <li>
-                  <strong>Security</strong>
-                  : Runs a Security Check on items in the Security column. Passes or rejects.
-                </li>
-                <li>
-                  <strong>Release</strong>
-                  : Deploys items in To Deploy to In Production.
-                </li>
-                <li>
-                  <strong>Observer</strong>
-                  : Read-only visibility across the whole board.
-                </li>
-              </ul>
-              <h3>Colouring pages</h3>
-              <p>
-                Use
-                <a href="https://www.online-coloring.com" target="_blank" rel="noopener">online-coloring.com</a>
-                to colour the pages. When you finish a page, save or screenshot it (or photograph paper colouring on
-                your phone). On your Task, drop the image file into the upload area, or click the area to browse for
-                it. The app uploads it and marks the Task complete. No external image host needed.
-              </p>
-              <h3>Security flaws</h3>
-              <p>
-                Some Product Requests have flaws. Security must catch them before they reach Production. A flaw can come
-                from the request itself or be injected by other means.
-              </p>
-              <h3>Sprints</h3>
-              <p>
-                The facilitator advances the session through Sprint 1 (Waterfall), Sprint 2 (Agile with security
-                failures), and Sprint 3 (CI/CD with Containers). Behaviour changes in each sprint.
-              </p>
-              <hr />
-              <p>
-                <a
-                  href="guide.html?doc=PARTICIPANT_GUIDE.md"
-                  target="_blank"
-                  rel="noopener"
-                  class="text-sky-600 underline font-medium">
-                  Open the full participant guide →
-                </a>
-                <span class="text-xs text-slate-500 block mt-1">
-                  Full version in a new tab, with table of contents and links to the other project docs.
-                </span>
-              </p>
-              <hr />
-              <p class="text-xs text-slate-500">
-                Adapted from Pylayeva, D. (2024).
-                <em>DevSecOps Adventures</em>
-                . Based on the
-                <a href="https://github.com/johnanvik/devops-colouring" target="_blank" rel="noopener">
-                  johnanvik/devops-colouring
-                </a>
-                template.
-              </p>
             </div>
           </div>
-        </div>
+        </template>
 
-        <!-- Toast. Lifted above the facilitator footer so they don't collide. -->
-        <div
-          x-show="$store.app.toastMsg"
-          x-transition.opacity
-          :class="$store.app.isFacilitator() ? 'bottom-20' : 'bottom-4'"
-          class="fixed left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
-          x-text="$store.app.toastMsg"></div>
+        <!-- NEW CARD MODAL (Business) -->
+        <template x-if="newCard">
+          <div class="fixed inset-0 bg-slate-900/50 z-30 flex items-end sm:items-center justify-center p-0 sm:p-4"
+               @keydown.escape.window="newCard = null"
+               @click.self="newCard = null">
+            <form class="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-5 sm:p-6 space-y-4"
+                  @submit.prevent="await $store.app.createIssue(newCard); newCard = null">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h2 class="text-xl font-bold">New Product Request</h2>
+                  <p class="text-xs text-slate-500 mt-1">
+                    Sprint <span x-text="$store.app.gameState.current_sprint"></span>: pick a category and a drawing,
+                    or fill in your own.
+                  </p>
+                </div>
+                <button type="button" @click="newCard = null"
+                        class="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                        aria-label="Close">&times;</button>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1">Category</label>
+                <select x-model="newCard.category"
+                        @change="newCard.curated_url_id = null"
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                  <option value="">Pick a category...</option>
+                  <template x-for="c in $store.app.categoriesForCurrentSprint()" :key="c">
+                    <option :value="c" x-text="c"></option>
+                  </template>
+                </select>
+              </div>
+
+              <template x-if="newCard.category">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Drawing</label>
+                  <select @change="
+                          const id = parseInt($event.target.value);
+                          newCard.curated_url_id = id || null;
+                          if (id) {
+                            const c = $store.app.curatedUrls.find(x => x.id === id);
+                            if (c) {
+                              newCard.title = c.label;
+                              newCard.description_url = c.url;
+                              newCard.price = c.default_price;
+                              newCard.batch_size = c.default_batch_size;
+                            }
+                          }"
+                          class="w-full px-3 py-2 border border-slate-300 rounded-lg">
+                    <option value="">Pick a drawing...</option>
+                    <template x-for="c in $store.app.curatedUrlsFor($store.app.gameState.current_sprint, newCard.category)" :key="c.id">
+                      <option :value="c.id" x-text="c.label"></option>
+                    </template>
+                  </select>
+                  <p class="text-xs text-slate-500 mt-1">Picking a drawing pre-fills the URL, price, and batch size.</p>
+                </div>
+              </template>
+
+              <div>
+                <label class="block text-sm font-medium mb-1">Title</label>
+                <input x-model="newCard.title" type="text" required
+                       x-init="$nextTick(() => $el.focus())"
+                       placeholder="e.g. Puppy Sitting"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1">Colouring page URL</label>
+                <input x-model="newCard.description_url" type="url"
+                       placeholder="https://www.online-coloring.com/..."
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Price</label>
+                  <input x-model.number="newCard.price" type="number" min="1"
+                         class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Batch size</label>
+                  <input x-model.number="newCard.batch_size" type="number" min="1"
+                         class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1">Acceptance criteria</label>
+                <textarea x-model="newCard.acceptance_criteria" rows="3"
+                          placeholder="What does Business need to see to accept this card?"
+                          class="w-full px-3 py-2 border border-slate-300 rounded-lg"></textarea>
+              </div>
+
+              <div class="flex gap-2 pt-2">
+                <button type="submit"
+                        class="flex-1 bg-slate-900 text-white font-medium py-3 rounded-lg hover:bg-slate-800 min-h-[44px]">
+                  Create
+                </button>
+                <button type="button" @click="newCard = null"
+                        class="px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[44px]">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </template>
+
+        <!-- HELP MODAL -->
+        <template x-if="helpOpen">
+          <div class="fixed inset-0 bg-slate-900/50 z-30 flex items-end sm:items-center justify-center p-0 sm:p-4"
+               @keydown.escape.window="helpOpen = false"
+               @click.self="helpOpen = false">
+            <div class="bg-white w-full sm:max-w-3xl rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-5 sm:p-8">
+              <div class="flex items-start justify-between mb-4">
+                <h2 class="text-xl font-bold">How to play</h2>
+                <button @click="helpOpen = false"
+                        class="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                        aria-label="Close help">&times;</button>
+              </div>
+
+              <div class="text-sm space-y-4 leading-relaxed">
+                <!-- Personalized header -->
+                <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+                  You are signed in as
+                  <strong x-text="$store.app.roleLabel($store.app.effectiveRole())"></strong>
+                  <template x-if="$store.app.effectiveTeam()">
+                    <span>on <strong x-text="$store.app.effectiveTeam()"></strong></span>
+                  </template>
+                  <template x-if="!$store.app.effectiveTeam() && $store.app.effectiveRole() === 'business'">
+                    <span>(no team; Business is cross-team)</span>
+                  </template>.
+                  Sprint <strong x-text="$store.app.gameState.current_sprint"></strong>.
+                  <template x-if="$store.app.crossTrainedRole()">
+                    <span class="block mt-1">
+                      Cross-trained as
+                      <strong x-text="$store.app.roleLabel($store.app.crossTrainedRole())"></strong>
+                      <template x-if="$store.app.user && $store.app.user.cross_trained_team">
+                        <span> on <strong x-text="$store.app.user.cross_trained_team"></strong></span>
+                      </template>.
+                    </span>
+                  </template>
+                </div>
+
+                <p>
+                  You have been assigned a <strong>role</strong> and (if applicable) a <strong>team</strong>.
+                  The board moves Product Requests from Market through to In Production. Each role owns a stage.
+                </p>
+
+                <div>
+                  <h3 class="font-semibold text-slate-900 mb-1">Your role</h3>
+                  <ul class="list-disc ml-5 space-y-1">
+                    <li><strong>Business</strong>: creates Product Requests in Market with Acceptance Criteria.
+                      Accepts or rejects items in Production. Rejected items go to Clarifications with a comment.</li>
+                    <li><strong>Developer</strong>: claims requests, creates Tasks for each batch item, completes
+                      each by uploading the finished image, then sends to Testing.</li>
+                    <li><strong>Tester</strong>: passes or fails requests in Testing by visual inspection of the
+                      attached images.</li>
+                    <li><strong>Security</strong>: runs a Security Check in the Security column. Passes or rejects.</li>
+                    <li><strong>SysAdmin</strong>: deploys items in To Deploy to In Production. Owns the Code
+                      Freeze toggle and restarts stopped containers.</li>
+                    <li><strong>Observer</strong>: read-only visibility across the whole board. Can comment.</li>
+                    <li><strong>Hacker</strong>: secret role. Appears as Developer in the UI but can inject flaws
+                      and (in Sprint 3) stop containers.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 class="font-semibold text-slate-900 mb-1">Colouring pages</h3>
+                  <p>
+                    Use the
+                    <a href="https://www.online-coloring.com" target="_blank" rel="noopener" class="text-sky-600 underline">online-coloring.com</a>
+                    URL on each card to colour the page. Save or screenshot the result, or photograph paper colouring
+                    on your phone. On your Task, drop the image into the upload area or click to browse. The app
+                    uploads to storage and marks the Task complete. No external image host needed.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 class="font-semibold text-slate-900 mb-1">Clarifications</h3>
+                  <p>
+                    A rejected card lands in the Clarifications column with the rejection reason posted as a
+                    comment. The targeted role/team picks it up to address the issue. Rejection can come from
+                    Tester, Security, or Business.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 class="font-semibold text-slate-900 mb-1">Sprints</h3>
+                  <p>
+                    Sprint 1 is straightforward Waterfall. Sprint 2 introduces a hidden <strong>Hacker</strong>
+                    and <strong>cross-training</strong> (each Dev/Tester/Security/SysAdmin gets a secondary role
+                    on their team). Sprint 3 turns on <strong>CI/CD bypass</strong> (containerized cards skip
+                    Testing and Security straight to Production) and <strong>role swap</strong>
+                    (Tester→Developer, Security→SysAdmin).
+                  </p>
+                </div>
+
+                <div>
+                  <h3 class="font-semibold text-slate-900 mb-1">Comments</h3>
+                  <p>
+                    Anyone can post a comment on any card. Use comments to ask questions, explain rejections,
+                    or coordinate. You can edit and delete your own comments.
+                  </p>
+                </div>
+
+                <hr class="my-4 border-slate-200" />
+
+                <p>
+                  <a href="guide.html?doc=PARTICIPANT_GUIDE.md" target="_blank" rel="noopener"
+                     class="text-sky-600 underline font-medium">
+                    Open the full participant guide →
+                  </a>
+                  <span class="block text-xs text-slate-500 mt-1">
+                    Includes per-role guides, sprint scenarios, and links to the other project docs.
+                  </span>
+                </p>
+                <p>
+                  <a href="leaderboard.html" target="_blank" rel="noopener" class="text-sky-600 underline font-medium">
+                    Open the leaderboard →
+                  </a>
+                  <span class="block text-xs text-slate-500 mt-1">
+                    Live team and individual standings.
+                  </span>
+                </p>
+                <p class="text-xs text-slate-500">
+                  Tap the <span class="inline-block px-1.5 border rounded">?</span> in any card's header for
+                  context-aware tips about what you can do on that specific card.
+                </p>
+
+                <hr class="my-4 border-slate-200" />
+                <p class="text-xs text-slate-500">
+                  Adapted from Pylayeva, D. (2024).
+                  <em>DevSecOps Adventures</em>.
+                  Based on the
+                  <a href="https://github.com/johnanvik/devops-colouring" target="_blank" rel="noopener" class="underline">
+                    johnanvik/devops-colouring
+                  </a>
+                  template.
+                </p>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Toast. Lifts above the facilitator bar so they don't collide. -->
+        <div x-show="$store.app.toastMsg" x-transition.opacity
+             :class="$store.app.isFacilitator() ? 'bottom-20' : 'bottom-4'"
+             class="fixed left-1/2 -translate-x-1/2 z-40 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg"
+             x-text="$store.app.toastMsg"></div>
 
         <!-- ============================================================
-           FACILITATOR IMPERSONATION BAR (fixed to the bottom edge)
-           Only visible to facilitators. Deliberately low-contrast so the
-           rest of the page above it matches what participants see. Lets
-           the facilitator swap roles and teams at any time without logging
-           out.
-           ============================================================ -->
+             FACILITATOR SIMULATE BAR (fixed to the bottom edge)
+             Visible only when user is a facilitator. Deliberately
+             low-contrast so the rest of the page above it matches what
+             a participant would see. The facilitator picks a role and
+             optionally a team; everything above this bar then renders
+             from the participant's perspective. Stop simulating returns
+             to observe-only mode.
+             ============================================================ -->
         <template x-if="$store.app.isFacilitator()">
           <div class="fixed inset-x-0 bottom-0 z-40 bg-indigo-50/95 backdrop-blur border-t border-indigo-200 shadow-lg">
             <div class="px-3 sm:px-6 py-2 flex items-center gap-2 text-xs text-indigo-900 flex-wrap">
               <span class="font-medium uppercase tracking-wide text-[10px] text-indigo-700">Facilitator</span>
-              <a href="admin.html" class="text-sky-600 underline">Admin View</a>
+              <a href="admin.html" class="text-sky-600 underline">Admin</a>
+              <a href="tests.html" target="_blank" rel="noopener" class="text-sky-600 underline">Tests</a>
               <span class="hidden sm:inline text-indigo-700/70">simulate:</span>
               <select
                 x-model="$store.app.impersonation.role"
-                @change="$store.app.setImpersonation({ role: $event.target.value })"
+                @change="$store.app.setImpersonation({role: $event.target.value})"
                 class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]">
                 <option value="">Observe only</option>
                 <option value="business">as Business</option>
                 <option value="developer">as Developer</option>
                 <option value="tester">as Tester</option>
                 <option value="security">as Security</option>
-                <option value="release">as Release</option>
+                <option value="sysadmin">as SysAdmin</option>
                 <option value="observer">as Observer</option>
                 <option value="hacker">as Hacker</option>
               </select>
               <select
                 x-model="$store.app.impersonation.team"
-                @change="$store.app.setImpersonation({ team: $event.target.value })"
+                @change="$store.app.setImpersonation({team: $event.target.value})"
                 x-show="!!$store.app.impersonation.role"
                 class="px-2 py-1 border border-indigo-300 bg-white rounded min-h-[32px]">
                 <option value="">(no team)</option>
@@ -857,7 +1156,7 @@
               </select>
               <template x-if="$store.app.impersonation.role">
                 <button
-                  @click="$store.app.setImpersonation({ role: '', team: '' })"
+                  @click="$store.app.setImpersonation({role: '', team: ''})"
                   class="ml-auto px-2 py-1 text-indigo-700 hover:text-indigo-900 underline">
                   Stop simulating
                 </button>
@@ -871,7 +1170,7 @@
           </div>
         </template>
 
-        <!-- Bottom padding so board cards aren't hidden behind the footer. -->
+        <!-- Bottom padding so board cards aren't hidden behind the bar. -->
         <template x-if="$store.app.isFacilitator()">
           <div class="h-12" aria-hidden="true"></div>
         </template>

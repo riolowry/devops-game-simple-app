@@ -1,89 +1,69 @@
-# Participant guide
+# Participant Guide
 
-You are participating in the DevSecOps Adventure. This guide covers what your role does and how the board works. The app also has a **Help** button that shows a short version.
+Welcome to **ITS DevSecOps Adventure**, a hands-on simulation of a software pipeline. You'll play a role on a team that builds, tests, secures, and ships products to a Business stakeholder. Across three sprints, conditions change: a Hacker is introduced, cross-training kicks in, and finally CI/CD bypass with containers reshapes the pipeline.
 
-## How to log in
+## Joining
 
-Your facilitator has given you a 6-character token. Open the app URL on your phone, tablet, or laptop. Enter the token. That's it. No password.
-
-## The board
-
-Seven columns, left to right:
-
-1. **Market** where Business posts new Product Requests
-2. **In Progress** where Developers claim and complete tasks
-3. **Testing** where Testers visually check the colouring
-4. **Security** where Security runs a Security Check
-5. **To Deploy** where Release prepares the deploy
-6. **In Production** where Business accepts or rejects the finished product
-7. **Feedback** rejected items land here and go back to In Progress
-
-On a phone, swipe left and right to move between columns. On a tablet or laptop you can see several columns at once.
-
-Click or tap a card to open its details. The available actions depend on your role and the card's current column.
+1. Open the URL the facilitator shares.
+2. Enter your **6-character token**. You'll see your role and team.
+3. The board has columns: Market, Clarifications, In Progress, Testing, Security, To Deploy, In Production, Accepted. Cards flow left to right.
 
 ## Your role
 
-### Business
+Click **Help** in the top right at any time. Or open the [role-specific guide](guide.html) from the sidebar:
 
-- In **Market**: click `+ New Product Request` to create an Issue. Pick a colouring page URL from [online-coloring.com](https://www.online-coloring.com), set a Price (points the team earns on acceptance) and a Batch Size (how many copies of the page the team must complete).
-- In **In Production**: click into a card and either Accept (archives it, team earns the Price) or Reject to Feedback with a reason.
+- [Business](guide.html?doc=ROLE_BUSINESS.md): write Product Requests, accept or reject finished work
+- [Developer](guide.html?doc=ROLE_DEVELOPER.md): claim, draw, upload, ship
+- [Tester](guide.html?doc=ROLE_TESTER.md): verify deliverables match the description
+- [Security](guide.html?doc=ROLE_SECURITY.md): catch flaws
+- [SysAdmin](guide.html?doc=ROLE_SYSADMIN.md): deploy, freeze, restart
+- [Observer](guide.html?doc=ROLE_OBSERVER.md): watch, take notes
+- [Hacker](guide.html?doc=ROLE_HACKER.md): inject and disrupt (you'll know if this is you)
 
-### Developer
+## Clarifications column: rejections AND questions
 
-1. In **In Progress**: click into an unclaimed Issue and Claim it for your team.
-2. Create one Task per required batch item by clicking `+ Claim a Task`.
-3. Open the colouring page (the Issue description URL), colour it, save the image (or photograph paper colouring on your phone). On your Task, drop the image file onto the dashed upload area, or click that area to browse for it. You will see a thumbnail and the file name; press **Upload &amp; mark complete** to finish. The button shows **Uploading...** while the file is being sent. No third-party image host required.
-4. Once all Tasks are complete (the batch bar shows 3/3 or similar), click **Send to Testing** on the Issue.
-5. If an Issue lands back in **In Progress** or **Feedback** (rejected), fix it and send it through again. Check the feedback reason at the top of the card.
+The **Clarifications** column is where any card needing attention lands. There are two distinct flows that both end up there, and you'll see a colored badge on each card telling you which:
 
-In Sprint 3 you can mark your Tasks as **Containerized** when you create them. Containerized items are protected against hacker tampering.
+### Rejection (rose pill: `REJECTION → Developer / Team A`)
 
-### Tester
+A Tester, Security, or Business person rejected the card and the developer needs to fix it. The targeted developer clicks **Pick up for rework** — one click — and the card moves to **In Progress** so they can address the rejection reason. The rejection reason is in the red banner at the top of the card.
 
-- In **Testing**: open each card and check the attached images. Click each image link to open it in a new tab. Is every region of the drawing coloured? If yes, **Pass Testing** (advances to Security). If no, **Fail Testing** (goes back to In Progress for rework).
+### Question (blue pill: `QUESTION → Business`)
 
-### Security
+Someone asked a question of a specific role/team. The card pauses in Clarifications until that person clicks **Send response**, writes their answer, and submits. The card then returns to whichever column the asker was working in. **Use questions whenever you need clarification** — about acceptance criteria, an unclear rejection reason, deployment scope, anything. The whole point of this column is that everyone can SEE that a card is blocked on a question and who needs to answer.
 
-- In **Security**: open a card and click **Run Security Check**. The app tells you if a flaw is present and its source.
-- If clean, click **Pass Security**. If flawed, click **Reject (Security)** with a reason. It goes back to In Progress.
-- Your performance is tracked in the background. Miss too many and flaws reach Production, which costs the team the Price.
+### Asking a question
 
-### Release
+Open any card you're working on (or any rejected card targeting you) and click **Ask a question**. Pick:
 
-- In **To Deploy**: open a card and click **Deploy to Production**.
+- **Which role** to ask: Business / Developer / Tester / Security / SysAdmin
+- **Which team** they're on (auto-fills to the card's team for team-bound roles; Business is cross-team so no team)
+- **Your question** in plain language
 
-### Observer
+The card moves to Clarifications and stays there until the target answers. If the target's response doesn't fully clarify, ask again — questions can chain.
 
-- You can see the whole board but cannot take actions. Watcher role. Your team (if you have one) is informational only.
+### A common pattern: asking your rejecter back
 
-## Sprints
+If your card was rejected and the reason isn't clear, you don't have to guess. Click **Ask a question**, target the role that rejected you, and ask. When they answer, the card returns to In Progress with the answer in the comment thread.
 
-Three sprints. Behaviour changes in each.
+## Card detail
 
-- **Sprint 1** Waterfall. Everyone stays strictly in their column. Hand-offs are explicit and slow. This is on purpose. Feel the pain.
-- **Sprint 2** Agile. Cross-role collaboration is allowed. Also: some participants have been secretly assigned as Hackers. Hackers can be drawn from any role (not just Developers). They can inject security flaws into any item across the active pipeline (In Progress, Testing, Security, or To Deploy), on any team. Security has to catch them.
-- **Sprint 3** CI/CD and Containers. Developers can mark Tasks as Containerized, which protects them from Hacker tampering. Sprint moves faster.
+Click any card to see:
 
-## Security flaws
+- Tags: sprint, team, price, batch progress, container, freeze, stopped
+- Description URL and Acceptance Criteria
+- The latest **rejection reason** (red panel) if the card has been bounced
+- Action buttons appropriate to your role
+- Tasks list with image attachments
+- Comment thread (anyone can post; you can edit and delete your own)
+- Help (?) button: context-aware tips for what you can do here
 
-Two kinds:
+## Cross-training
 
-1. **Deterministic**: some Issue IDs have an inherent flaw based on a formula the facilitator sets. This simulates pre-existing bugs.
-2. **Injected**: only in Sprint 2 and 3, a Hacker participant may have planted a flaw. Invisible until Security checks.
+In Sprint 2 you may be **cross-trained** as a second role on your team. The header banner tells you which. You can act in that role on your team's cards in addition to your primary.
 
-As Security, you do not need to know which kind it is. The check tells you both. Your job is to catch them before they reach Production.
+## Tips
 
-## Troubleshooting
-
-**I can't log in.** Your token is case-insensitive. Check you typed it correctly. If still failing, ask the facilitator.
-
-**The board looks frozen.** Check the coloured dot in the top-right of the header. Green is live, yellow is polling (slight delay, still works), red is no connection.
-
-**I closed the tab.** Reopen the app URL. You stay logged in until you explicitly click Exit.
-
-**I'm on my phone and a column looks squished.** Swipe sideways. One column fills the screen at a time; you move between them by swiping.
-
-## Credits
-
-Based on Pylayeva, D. (2024). _DevSecOps Adventures_. Adapted from the [johnanvik/devops-colouring](https://github.com/johnanvik/devops-colouring) exercise.
+- The connection dot in the header tells you whether realtime sync is healthy (green) or polling (amber).
+- Use comments instead of side-channel chat. They're persistent and visible to everyone.
+- Watch the [leaderboard](leaderboard.html) for live team and individual standings.

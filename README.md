@@ -1,14 +1,8 @@
-# ITS DevSecOps Adventure: static-site CRUD app
+# ITS DevSecOps Adventure
 
-A free, self-contained implementation of the "DevSecOps Adventure" coloring game. Two static HTML entry points and a Supabase project are all you need. No GitHub organization, no CLI scripts, no build step.
+A classroom Kanban simulation that walks a group through the SDLC: Business → Developer → Tester → Security → SysAdmin → Business, across three sprints that progressively introduce hackers, cross-training, and CI/CD bypass with containers.
 
-Designed for conference tutorials and classroom sessions with 20 to 50 participants.
-
-## What this is
-
-A replacement for the GitHub Projects / Issues workflow used in [johnanvik/devops-colouring](https://github.com/johnanvik/devops-colouring), keeping the same pedagogical structure (three sprints, seven roles, Kanban board) but removing every external dependency except a free Supabase backend and free Cloudflare Pages hosting.
-
-Participants colour pages, upload them through the app (Supabase Storage handles the files; no third-party image host required), and walk product requests through a simulated DevSecOps pipeline. A secret Hacker role injects flaws in Sprints 2 and 3; Security has to catch them.
+Built on Supabase, Alpine.js, and Tailwind CDN. No build step. Static hosting friendly.
 
 ## Repository layout
 
@@ -18,58 +12,82 @@ devops-game-simple-app/
 ├── LICENSE
 ├── README.md                              ← this file
 │
-├── setup_resources/                       ← initial setup, templates, schema
+├── setup_resources/                       ← initial setup, templates, schema (NOT served)
 │ ├── config.example.js                    ← copy to public/config.js, fill in credentials
 │ ├── schema.sql                           ← Postgres + Storage schema (run once in Supabase SQL editor)
 │ ├── SETUP_SUPABASE_DB.md                 ← Supabase backend setup (5 min)
-│ └── SETUP_CLOUDFLARE_DEPLOYMENT.md       ← Cloudflare Pages deployment (5 min)
+│ ├── SETUP_CLOUDFLARE_DEPLOYMENT.md       ← Cloudflare Pages deployment (5 min)
+│ └── MANUAL_TEST_WALKTHROUGH.md           ← post-deploy verification checklist
 │
 └── public/                                ← deploy this folder to Cloudflare Pages
   ├── index.html                           ← participant board (login + Kanban)
   ├── admin.html                           ← facilitator console
+  ├── leaderboard.html                     ← live team and individual rankings
   ├── guide.html                           ← in-app rendered markdown guides
   ├── tests.html                           ← in-browser test harness
-  ├── app.js                               ← shared Alpine/Supabase application logic
+  ├── app.core.js                          ← build marker, constants, supabase client
+  ├── app.logic.js                         ← pure logic (canAct, sprint advance, flaws)
+  ├── app.store.js                         ← Alpine state, loaders, realtime
+  ├── app.actions.js                       ← participant action handlers
+  ├── app.admin.js                         ← admin action handlers
+  ├── app.boot.js                          ← Alpine.store registration glue
+  ├── leaderboard.js                       ← supports leaderboard.html
   ├── guide.js                             ← supports guide.html
-  ├── tests.js                             ← supports tests.html
+  ├── tests.logic.js                       ← pure-logic test suite
+  ├── tests.db.js                          ← DB end-to-end test suite
   ├── config.js                            ← YOUR CREDENTIALS (gitignored, not committed)
   ├── styles.css                           ← supplemental CSS (print, a11y, motion)
   │
   └── guides/                              ← markdown sources rendered by guide.html
-    ├── FACILITATOR_GUIDE.md
     ├── PARTICIPANT_GUIDE.md
-    └── TESTING_GUIDE.md
+    ├── FACILITATOR_GUIDE.md
+    ├── TESTING_GUIDE.md
+    ├── ROLE_BUSINESS.md
+    ├── ROLE_DEVELOPER.md
+    ├── ROLE_TESTER.md
+    ├── ROLE_SECURITY.md
+    ├── ROLE_SYSADMIN.md
+    ├── ROLE_OBSERVER.md
+    ├── ROLE_HACKER.md
+    ├── ROLE_FACILITATOR.md
+    ├── SPRINT1_SCENARIO.md
+    ├── SPRINT2_SCENARIO.md
+    └── SPRINT3_SCENARIO.md
 ```
 
 ## Quick start
 
-1. **Create the backend.** Follow [setup_resources/SETUP_SUPABASE_DB.md](setup_resources/SETUP_SUPABASE_DB.md). About 5 minutes. You will obtain a `SUPABASE_URL` and a `sb_publishable_…` key.
+1. **Spin up Supabase**. Create a project. SQL Editor → paste `setup_resources/schema.sql` → Run. See `setup_resources/SETUP_SUPABASE_DB.md` for details.
+2. **Configure**. Copy `setup_resources/config.example.js` to `public/config.js`. Fill in your Supabase URL and publishable key.
+3. **Serve**. `cd public && python3 -m http.server 8000`. Open http://localhost:8000.
+4. **Sign in**. Use the seed token `FACIL1` to access `admin.html`.
+5. **Run a session**. See `public/guides/FACILITATOR_GUIDE.md`.
 
-2. **Configure the frontend.** Copy `setup_resources/config.example.js` to `public/config.js` and paste in the URL and publishable key.
+## Verifying the build
 
-3. **Deploy.** Follow [setup_resources/SETUP_CLOUDFLARE_DEPLOYMENT.md](setup_resources/SETUP_CLOUDFLARE_DEPLOYMENT.md) to upload the `public/` folder to Cloudflare Pages. Free, no Git required.
+Open the browser console on `index.html`. You should see:
 
-4. **Log in as facilitator.** Visit `your-site.pages.dev/admin.html`, enter the default facilitator token `FACIL1`, generate participant tokens.
+```
+[devsec] app.js loaded (v2 modular build, complete)
+```
 
-5. **Run the session.** See the [Facilitator guide](public/guides/FACILITATOR_GUIDE.md) (also rendered in-app at `your-site.pages.dev/guide.html?doc=FACILITATOR_GUIDE.md`).
+If you see the configuration error page instead, your `public/config.js` is missing or still has placeholder values.
 
-## Costs
+## Testing
 
-Zero. The Supabase free tier (500 MB Postgres, 1 GB file storage, 5 GB storage egress + 5 GB DB egress per month) covers a 90-minute session with 50 participants comfortably; a typical session writes a few hundred ~500 KB images, well under the 1 GB cap. Cloudflare Pages static hosting is free with generous bandwidth. No credit card required for either service.
+Open `tests.html` in a browser. Click **Run ALL**. All tests should pass on a fresh database. The DB tests namespace their rows with a `test_` prefix and self-clean.
 
-## What participants experience
+## Architecture notes
 
-Each participant logs in with a 6-character token (no password). They land on a Kanban board appropriate to their role. When a Developer finishes a colouring page, they pick the image file from their phone or laptop and the app uploads it directly to Supabase Storage; no imgur, no postimg, no link-pasting friction. Testers and Business see the uploaded images inline. The facilitator's "Reset Everything" button wipes both the database and the storage bucket in one shot, keeping the project safely under the free-tier caps between sessions.
+- The frontend is split into small IIFE modules attached to `window.App`. `app.boot.js` mixes everything into a single Alpine store. Load order matters: core, logic, store, actions, [admin], boot.
+- All permissions are computed by `App.logic.canAct(user, impersonation, issue, action, ctx)`. The same function is called by the UI to decide which buttons to render and by the action handlers to validate before writing. Tests cover the full matrix.
+- Realtime sync is best-effort: subscribe via Supabase Realtime; fall back to 3-second polling on subscription failure or going offline.
+- The schema has `RLS DISABLED` on every table. This is intentional for a classroom exercise where every participant uses the publishable (or legacy anon) key. For a hardened deployment, enable RLS and write policies.
 
-## Limitations
+## Credits
 
-The short version: this is trust-based (not secure), single-session (one Supabase project per concurrent session), and online-only (no offline mode). Acceptable trade-offs for a classroom tool. Anyone with browser DevTools can write directly to the database via the publishable key; this is documented and itself a teachable moment for the security discussion.
+Curated drawing URLs are from [Online Coloring](https://www.online-coloring.com/). All other content original.
 
-## Attribution
+## License
 
-This exercise is adapted from:
-
-- Pylayeva, D. (2024). _DevSecOps Adventures: A Game-Changing Approach with Chocolate, LEGO, and Coaching Games_. Apress. [doi.org/10.1007/979-8-8688-0397-0](https://doi.org/10.1007/979-8-8688-0397-0)
-- [johnanvik/devops-colouring](https://github.com/johnanvik/devops-colouring), a GitHub-based adaptation of the above.
-
-This implementation preserves the workflow and terminology of both sources.
+See LICENSE file in the repository root.

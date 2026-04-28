@@ -1,28 +1,27 @@
 // ITS DevSecOps Adventure: markdown guide renderer
-// ----------------------------------------------------------------------
-// Fetches a markdown file, parses with marked (loaded from CDN), and
-// renders into #guide-content. Gated by an allowlist so the query
-// param cannot be used to fetch anything other than the project's
-// own .md files.
-//
+// Fetches a markdown file, parses with marked, renders into
+// #guide-content. Allowlist gates the doc query param.
 // Usage:
 //   guide.html?doc=PARTICIPANT_GUIDE.md
-//   guide.html?doc=TESTING_GUIDE.MD&title=Tester+manual
-// ----------------------------------------------------------------------
+//   guide.html?doc=ROLE_DEVELOPER.md&title=Developer+Guide
 (function () {
   "use strict";
 
-  // Allowlist of documents this viewer can render. Keep in sync with
-  // the project's .md files. Prevents anyone from pointing the viewer
-  // at arbitrary URLs.
   const ALLOWED = {
     "PARTICIPANT_GUIDE.md": "Participant guide",
     "FACILITATOR_GUIDE.md": "Facilitator guide",
     "TESTING_GUIDE.md": "Testing guide",
-    // "README.md": "README",
-    // "SETUP_CLOUDFLARE_DEPLOYMENT.md": "Deployment guide",
-    // "SETUP_SUPABASE_DB.md": "Supabase setup",
-    // "PLAN.md": "Project plan",
+    "ROLE_BUSINESS.md": "Role: Business",
+    "ROLE_DEVELOPER.md": "Role: Developer",
+    "ROLE_TESTER.md": "Role: Tester",
+    "ROLE_SECURITY.md": "Role: Security",
+    "ROLE_SYSADMIN.md": "Role: SysAdmin",
+    "ROLE_OBSERVER.md": "Role: Observer",
+    "ROLE_HACKER.md": "Role: Hacker",
+    "ROLE_FACILITATOR.md": "Role: Facilitator",
+    "SPRINT1_SCENARIO.md": "Sprint 1 scenario",
+    "SPRINT2_SCENARIO.md": "Sprint 2 scenario",
+    "SPRINT3_SCENARIO.md": "Sprint 3 scenario",
   };
 
   const params = new URLSearchParams(window.location.search);
@@ -36,7 +35,6 @@
   const rawLink = document.getElementById("guide-raw-link");
   const sidebar = document.getElementById("guide-sidebar");
 
-  // Build the sidebar links
   (function buildSidebar() {
     const ul = document.createElement("ul");
     ul.className = "space-y-1";
@@ -55,6 +53,15 @@
     sidebar.appendChild(ul);
   })();
 
+  function escapeHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   if (!Object.prototype.hasOwnProperty.call(ALLOWED, doc)) {
     titleEl.textContent = "Guide not found";
     contentEl.innerHTML =
@@ -69,20 +76,6 @@
   subEl.textContent = doc;
   rawLink.href = "guides/" + doc;
 
-  // Helper used only for the error-path innerHTML above. Anywhere else
-  // we lean on marked to render the markdown.
-  function escapeHtml(s) {
-    return String(s || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  // Render once marked is available. The CDN script in guide.html uses
-  // the defer attribute so DOMContentLoaded fires before marked loads
-  // sometimes; hence this polling fallback instead of assuming order.
   function whenReady(cb, tries) {
     if (window.marked) return cb();
     if (tries <= 0) {
@@ -97,24 +90,14 @@
   }
 
   whenReady(function () {
-    // Configure marked: GitHub-flavored, tables, no raw HTML.
-    marked.setOptions({
-      gfm: true,
-      breaks: false,
-      headerIds: true,
-      mangle: false,
-      // sanitize was removed in marked v5; we mitigate by not passing
-      // untrusted input. The .md files come from the project bundle.
-    });
-
+    marked.setOptions({gfm: true, breaks: false, headerIds: true, mangle: false});
     fetch("guides/" + doc, {cache: "no-cache"})
       .then(function (r) {
         if (!r.ok) throw new Error("Fetch failed: " + r.status);
         return r.text();
       })
       .then(function (text) {
-        const html = marked.parse(text);
-        contentEl.innerHTML = html;
+        contentEl.innerHTML = marked.parse(text);
         buildToc();
         highlightCurrentHash();
       })
@@ -128,12 +111,10 @@
           '<p class="text-sm text-slate-500">' +
           "This usually means you are opening guide.html directly from the filesystem " +
           "(<code>file://</code>). Markdown fetch only works when the page is served " +
-          "over http/https: either the same static server that hosts the app, or " +
-          "<code>python3 -m http.server</code> in the project folder.</p>";
+          "over http/https.</p>";
       });
-  }, 200); // up to ~10s
+  }, 200);
 
-  // Build a table of contents from headings.
   function buildToc() {
     const headings = contentEl.querySelectorAll("h2, h3");
     if (!headings.length) {
@@ -143,7 +124,6 @@
     const ul = document.createElement("ul");
     ul.className = "space-y-1 text-sm";
     headings.forEach(function (h) {
-      // Ensure id for anchor linking; marked supplies one when headerIds:true.
       if (!h.id) {
         h.id = h.textContent
           .toLowerCase()
