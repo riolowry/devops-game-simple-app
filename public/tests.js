@@ -27,7 +27,7 @@
         '<div style="font-family:system-ui;max-width:600px;margin:4rem auto;padding:1rem;">' +
         "<h1>Configuration required</h1>" +
         "<p>Copy <code>setup_resources/config.example.js</code> to <code>public/config.js</code>. " +
-        'Set your Supabase URL and anon key. See <a href="https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_SUPABASE_DB.md" target="_blank" rel="noopener">setup_resources/SETUP_SUPABASE_DB.md</a> in the repository for more information.</p></div>';
+        'Set your Supabase URL and publishable key. See <a href="https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_SUPABASE_DB.md" target="_blank" rel="noopener">setup_resources/SETUP_SUPABASE_DB.md</a> in the repository for more information.</p></div>';
     });
     return;
   }
@@ -40,9 +40,13 @@
   const DEFAULT_DELAY_MS = 1500; // pause between visible state changes
   const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+  // Resolve the project key. Prefer the new publishable key; fall back to a
+  // legacy anon JWT so an in-flight migration cannot break the test runner.
+  const PROJECT_KEY = window.CONFIG.SUPABASE_PUBLISHABLE_KEY || window.CONFIG.SUPABASE_ANON_KEY;
+
   // Own Supabase client. We do not reuse the app's client because
   // tests.html runs standalone (no app.js loaded).
-  const supabase = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
+  const supabase = window.supabase.createClient(window.CONFIG.SUPABASE_URL, PROJECT_KEY);
 
   // ==========================================================
   // Helpers
@@ -223,7 +227,7 @@
       id: "health",
       name: "Health: all 5 tables reachable",
       category: "setup",
-      description: "Confirms schema.sql has been run and the anon key has read access.",
+      description: "Confirms schema.sql has been run and the publishable key has read access.",
       async run(ctx) {
         const tables = ["users", "issues", "tasks", "game_state", "hacker_log"];
         for (const t of tables) {

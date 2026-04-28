@@ -1,0 +1,17 @@
+# Cloudflare Pages headers configuration.
+#
+# Why this file exists:
+# A facilitator who redeploys this app between sessions can otherwise serve
+# stale HTML / JS to anyone whose browser cached the previous build. The
+# symptom is exactly the failure mode we hit during early testing: students
+# see an old version of the UI even after a successful redeploy.
+#
+# `Cache-Control: no-cache` tells the browser to revalidate every request
+# with the server before reusing a cached response. The server (Cloudflare)
+# answers with a 304 Not Modified when the file is unchanged, so the actual
+# transferred bytes are tiny. The cost is one round-trip per file per page
+# load, which is negligible for a classroom app and well worth the
+# guarantee that a redeploy is picked up immediately.
+
+/*
+  Cache-Control: no-cache

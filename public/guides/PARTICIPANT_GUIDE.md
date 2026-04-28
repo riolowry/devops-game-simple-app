@@ -33,7 +33,7 @@ Click or tap a card to open its details. The available actions depend on your ro
 
 1. In **In Progress**: click into an unclaimed Issue and Claim it for your team.
 2. Create one Task per required batch item by clicking `+ Claim a Task`.
-3. Open the colouring page (the Issue description URL), colour it, save the image, and upload it somewhere public (imgur, postimg, etc.). Paste the URL into your Task and mark it complete.
+3. Open the colouring page (the Issue description URL), colour it, save the image (or photograph paper colouring on your phone). On your Task, drop the image file onto the dashed upload area, or click that area to browse for it. You will see a thumbnail and the file name; press **Upload &amp; mark complete** to finish. The button shows **Uploading...** while the file is being sent. No third-party image host required.
 4. Once all Tasks are complete (the batch bar shows 3/3 or similar), click **Send to Testing** on the Issue.
 5. If an Issue lands back in **In Progress** or **Feedback** (rejected), fix it and send it through again. Check the feedback reason at the top of the card.
 
@@ -41,7 +41,7 @@ In Sprint 3 you can mark your Tasks as **Containerized** when you create them. C
 
 ### Tester
 
-- In **Testing**: open each card and check the attached image URLs. Is every region of the drawing coloured? If yes, **Pass Testing** (advances to Security). If no, **Fail Testing** (goes back to In Progress for rework).
+- In **Testing**: open each card and check the attached images. Click each image link to open it in a new tab. Is every region of the drawing coloured? If yes, **Pass Testing** (advances to Security). If no, **Fail Testing** (goes back to In Progress for rework).
 
 ### Security
 

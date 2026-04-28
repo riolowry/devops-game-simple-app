@@ -59,6 +59,8 @@ CREATE TABLE issues (
 
 -- ============================================================
 -- TASKS (child items under an Issue; one per colored page)
+-- attachment_url holds either an external URL (legacy / test data)
+-- or a Supabase Storage public URL written by the in-app uploader.
 -- ============================================================
 CREATE TABLE tasks (
   id BIGSERIAL PRIMARY KEY,
@@ -107,9 +109,10 @@ INSERT INTO users (token, display_name, role) VALUES
 
 -- ============================================================
 -- ROW LEVEL SECURITY
--- For a classroom exercise we disable RLS so the anon key can
--- read and write all tables. This is intentionally trust-based.
--- For a hardened deployment, enable RLS and write policies.
+-- For a classroom exercise we disable RLS so the publishable key
+-- (or legacy anon key) can read and write all tables. This is
+-- intentionally trust-based. For a hardened deployment, enable RLS
+-- and write policies.
 -- ============================================================
 ALTER TABLE users        DISABLE ROW LEVEL SECURITY;
 ALTER TABLE issues       DISABLE ROW LEVEL SECURITY;
@@ -142,3 +145,37 @@ CREATE TRIGGER issues_touch BEFORE UPDATE ON issues
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 CREATE TRIGGER tasks_touch BEFORE UPDATE ON tasks
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- ============================================================
+-- STORAGE: task-images bucket
+-- Holds participant uploads (their colored pages). Created public
+-- so Testers and Business can view attachments without extra auth.
+-- INSERT and DELETE are also allowed for the publishable/anon role
+-- so the SPA can upload from completeTask() and the facilitator's
+-- "Reset Everything" button can sweep the bucket clean. This is
+-- consistent with the trust-based posture above; tighten with
+-- proper policies if you ever ship a hardened version.
+--
+-- Idempotent: re-running this whole file or just this section is
+-- safe. Storage policies live on storage.objects (a project-wide
+-- table), so the policy names are namespaced to the bucket.
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('task-images', 'task-images', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "task-images public read"   ON storage.objects;
+DROP POLICY IF EXISTS "task-images public upload" ON storage.objects;
+DROP POLICY IF EXISTS "task-images public delete" ON storage.objects;
+
+CREATE POLICY "task-images public read"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'task-images');
+
+CREATE POLICY "task-images public upload"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'task-images');
+
+CREATE POLICY "task-images public delete"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'task-images');

@@ -226,7 +226,7 @@
                       <template x-for="u in lastCreatedTokens" :key="u.token">
                         <tr class="border-t border-amber-200">
                           <td class="py-1 pr-3 font-mono font-bold" x-text="u.token"></td>
-                          <td class="py-1 pr-3" x-text="u.display_name || '—'"></td>
+                          <td class="py-1 pr-3" x-text="u.display_name || '.'"></td>
                           <td class="py-1 pr-3 capitalize" x-text="u.role"></td>
                           <td class="py-1 pr-3" x-text="u.team || ''"></td>
                         </tr>
@@ -343,7 +343,7 @@
                     <div class="min-w-0">
                       <div class="font-mono text-xs" x-text="u.token"></div>
                       <div class="text-sm truncate">
-                        <span x-text="u.display_name || '(unnamed)'"></span>
+                        <span x-text="u.display_name || '.'"></span>
                         <span
                           class="text-slate-500 text-xs"
                           x-text="' · ' + u.role + (u.team ? ' · ' + u.team : '')"></span>
@@ -364,7 +364,7 @@
                   <div class="flex items-center justify-between p-2 border border-rose-200 bg-rose-50 rounded-lg">
                     <div>
                       <span class="font-mono text-xs" x-text="u.token"></span>
-                      <span class="ml-2 text-sm" x-text="u.display_name || '(unnamed)'"></span>
+                      <span class="ml-2 text-sm" x-text="u.display_name || '.'"></span>
                       <span
                         class="ml-2 text-xs text-slate-500"
                         x-text="(u.team ? u.team + ' · ' : '') + 'was ' + (u.previous_role || 'developer')"></span>

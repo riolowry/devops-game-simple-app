@@ -1,6 +1,6 @@
 # ITS DevSecOps Adventure: static-site CRUD app
 
-A free, self-contained implementation of the "DevSecOps Adventure" coloring game. Two HTML pages and a Supabase project are all you need. No GitHub organization, no CLI scripts, no build step.
+A free, self-contained implementation of the "DevSecOps Adventure" coloring game. Two static HTML entry points and a Supabase project are all you need. No GitHub organization, no CLI scripts, no build step.
 
 Designed for conference tutorials and classroom sessions with 20 to 50 participants.
 
@@ -8,76 +8,62 @@ Designed for conference tutorials and classroom sessions with 20 to 50 participa
 
 A replacement for the GitHub Projects / Issues workflow used in [johnanvik/devops-colouring](https://github.com/johnanvik/devops-colouring), keeping the same pedagogical structure (three sprints, seven roles, Kanban board) but removing every external dependency except a free Supabase backend and free Cloudflare Pages hosting.
 
-See [PLAN.md](PLAN.md) for the full design rationale, data model, and gotchas. Start here for deployment.
+Participants colour pages, upload them through the app (Supabase Storage handles the files; no third-party image host required), and walk product requests through a simulated DevSecOps pipeline. A secret Hacker role injects flaws in Sprints 2 and 3; Security has to catch them.
 
-## Files in this repo
-
-```
-PLAN.md                   design document and gotcha register
-README.md                 this file
-SETUP_SUPABASE_DB.md         create the backend (5 minutes)
-SETUP_CLOUDFLARE_DEPLOYMENT.md             deploy the frontend to Cloudflare Pages
-FACILITATOR_GUIDE.md      pre-session and in-session playbook
-PARTICIPANT_GUIDE.md      what students see (also embedded in the app)
-schema.sql                run this once in Supabase SQL editor
-config.example.js         copy to config.js, add Supabase URL and key
-index.html                participant app (login + Kanban)
-admin.html                facilitator console (users, sprints, reset, export)
-app.js                    shared application logic
-styles.css                small amount of supplemental CSS
-```
-
-Project's directory structure:
+## Repository layout
 
 ```
 devops-game-simple-app/
-├── .gitignore                          ← You know, for git.
-├── README.md                           ← Overview, quick start (this file).
-├── LICENSE                             ← MIT License.
+├── .gitignore
+├── LICENSE
+├── README.md                              ← this file
 │
-├── setup_resources/                    ← Initial setup instructions, templates, and schemas.
-│ ├── config.example.js                 ← copy to `config.js` in the `public/` folder, fill in actual credentials
-│ ├── schema.sql                        ← Postgres schema (run once in Supabase SQL editor)
-│ ├── SETUP_CLOUDFLARE_DEPLOYMENT.md    ← Cloudflare Pages setup and frontend deployment instructions (5 min).
-│ └── SETUP_SUPABASE_DB.md              ← Supabase cloud backend setup instructions (5 min).
+├── setup_resources/                       ← initial setup, templates, schema
+│ ├── config.example.js                    ← copy to public/config.js, fill in credentials
+│ ├── schema.sql                           ← Postgres + Storage schema (run once in Supabase SQL editor)
+│ ├── SETUP_SUPABASE_DB.md                 ← Supabase backend setup (5 min)
+│ └── SETUP_CLOUDFLARE_DEPLOYMENT.md       ← Cloudflare Pages deployment (5 min)
 │
-└── public/                             ← Contains the files to deploy to Cloudflare.
-  ├── admin.html                        ← Current entry point for admin backend (restricted to facilitator(s) only), contains the facilitator facing admin views.
-  ├── app.js                            ← Main game logic is here.
-  ├── config.js                         ← Stores secrets! Don't commit to git!!
-  ├── guide.html                        ← Shows all user-facing markdown guides (user-facing means facilitator(s) and Participant(s)).
-  ├── guide.js                          ← Javascript to support `guide.html`.
-  ├── index.html                        ← Current entry point for app, contains the participant facing views.
-  ├── styles.css                        ← Supplemental CSS (I think it still needs: print, a11y, motion)
+└── public/                                ← deploy this folder to Cloudflare Pages
+  ├── index.html                           ← participant board (login + Kanban)
+  ├── admin.html                           ← facilitator console
+  ├── guide.html                           ← in-app rendered markdown guides
+  ├── tests.html                           ← in-browser test harness
+  ├── app.js                               ← shared Alpine/Supabase application logic
+  ├── guide.js                             ← supports guide.html
+  ├── tests.js                             ← supports tests.html
+  ├── config.js                            ← YOUR CREDENTIALS (gitignored, not committed)
+  ├── styles.css                           ← supplemental CSS (print, a11y, motion)
   │
-  ├── guides/                           ← all the markdown guides
-  │ ├── FACILITATOR_GUIDE.md            ← pre-session and in-session playbook
-  │ ├── PARTICIPANT_GUIDE.md            ← what participants see
-  │ └── TESTING_GUIDE.md                ← how to run tests, smoke, stress, self-test
-  │
-  ├── tests.html                      ← Testing page to run all tests from the browser (also contains UX views for running test, export, etc)
-  └── tests.js                        ← Testing js to support all tests in tests.html
+  └── guides/                              ← markdown sources rendered by guide.html
+    ├── FACILITATOR_GUIDE.md
+    ├── PARTICIPANT_GUIDE.md
+    └── TESTING_GUIDE.md
 ```
 
 ## Quick start
 
-1. **Create the backend.** Follow [SETUP_SUPABASE_DB.md](SETUP_SUPABASE_DB.md). Takes about 5 minutes. You get a `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+1. **Create the backend.** Follow [setup_resources/SETUP_SUPABASE_DB.md](setup_resources/SETUP_SUPABASE_DB.md). About 5 minutes. You will obtain a `SUPABASE_URL` and a `sb_publishable_…` key.
 
-2. **Configure the frontend.** Copy `config.example.js` to `config.js` and paste in the URL and key.
+2. **Configure the frontend.** Copy `setup_resources/config.example.js` to `public/config.js` and paste in the URL and publishable key.
 
-3. **Deploy.** Follow [SETUP_CLOUDFLARE_DEPLOYMENT.md](SETUP_CLOUDFLARE_DEPLOYMENT.md) to upload to Cloudflare Pages. Free, no Git required.
+3. **Deploy.** Follow [setup_resources/SETUP_CLOUDFLARE_DEPLOYMENT.md](setup_resources/SETUP_CLOUDFLARE_DEPLOYMENT.md) to upload the `public/` folder to Cloudflare Pages. Free, no Git required.
 
 4. **Log in as facilitator.** Visit `your-site.pages.dev/admin.html`, enter the default facilitator token `FACIL1`, generate participant tokens.
 
-5. **Run the session.** Follow [FACILITATOR_GUIDE.md](FACILITATOR_GUIDE.md).
+5. **Run the session.** See the [Facilitator guide](public/guides/FACILITATOR_GUIDE.md) (also rendered in-app at `your-site.pages.dev/guide.html?doc=FACILITATOR_GUIDE.md`).
 
 ## Costs
 
-Zero. The Supabase free tier covers a 90-minute session with 50 participants comfortably. Cloudflare Pages static hosting is free forever with generous bandwidth. No credit card required for either service.
+Zero. The Supabase free tier (500 MB Postgres, 1 GB file storage, 5 GB storage egress + 5 GB DB egress per month) covers a 90-minute session with 50 participants comfortably; a typical session writes a few hundred ~500 KB images, well under the 1 GB cap. Cloudflare Pages static hosting is free with generous bandwidth. No credit card required for either service.
+
+## What participants experience
+
+Each participant logs in with a 6-character token (no password). They land on a Kanban board appropriate to their role. When a Developer finishes a colouring page, they pick the image file from their phone or laptop and the app uploads it directly to Supabase Storage; no imgur, no postimg, no link-pasting friction. Testers and Business see the uploaded images inline. The facilitator's "Reset Everything" button wipes both the database and the storage bucket in one shot, keeping the project safely under the free-tier caps between sessions.
 
 ## Limitations
 
-See section 17 of [PLAN.md](PLAN.md). The short version: this is trust-based (not secure), single-session (one Supabase project per concurrent session), and online-only (no offline mode). Acceptable trade-offs for a classroom tool.
+The short version: this is trust-based (not secure), single-session (one Supabase project per concurrent session), and online-only (no offline mode). Acceptable trade-offs for a classroom tool. Anyone with browser DevTools can write directly to the database via the publishable key; this is documented and itself a teachable moment for the security discussion.
 
 ## Attribution
 

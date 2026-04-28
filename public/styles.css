@@ -15,8 +15,8 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Hide scrollbars visually on the tab nav and column nav
-   (they still scroll; just cleaner on mobile) */
+/* Hide scrollbars visually on the tab nav and column nav (they still scroll;
+   just cleaner on mobile) */
 nav.overflow-x-auto::-webkit-scrollbar {
   height: 0;
 }
@@ -31,31 +31,99 @@ nav.overflow-x-auto {
   }
 }
 
-/* Printing support for token handouts */
+/* ============================================================
+   Print: keep readable content; drop only chrome and overlays.
+   The earlier broad `header, nav, button { display: none }` rule
+   accidentally hid every kanban column heading (each column is
+   wrapped in a `<header><h2>` for semantics). The targeted
+   selectors below hide only the page-level chrome (sticky page
+   headers, fixed-position toasts and footers, and any open modal
+   overlay) so the actual content prints cleanly.
+   ============================================================ */
 @media print {
-  header,
-  nav,
-  button {
-    display: none !important;
-  }
   body {
     background: white;
   }
+  /* Page-level sticky header bar */
+  body > * header.sticky,
+  header.sticky {
+    display: none !important;
+  }
+  /* Fixed footers, toasts, modals */
+  .fixed {
+    display: none !important;
+  }
+  /* The token-handout amber box should print large and crisp; its parent
+     section is a regular block so it prints by default. Nothing to do
+     beyond making sure the table inside breaks across pages cleanly. */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+  /* Drop the action column ("Delete" / "Run") on print since it is
+     non-functional on paper. Identified by the empty header in admin's
+     all-tokens table. */
+  a,
+  a:visited {
+    color: inherit;
+    text-decoration: underline;
+  }
+  /* Remove background tints that waste ink */
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-amber-50 {
+    background: transparent !important;
+  }
 }
 
-/* High-visibility focus ring for keyboard users */
+/* ============================================================
+   Accessibility: high-visibility focus ring for keyboard users.
+   Indigo at 2px with a 2px offset gives a 4px stand-off ring that
+   meets WCAG 2.4.7 (focus visible) and WCAG 2.4.13 (focus
+   appearance) on light backgrounds.
+   ============================================================ */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
   outline: 2px solid #4f46e5;
   outline-offset: 2px;
 }
 
-/* Prefer reduced motion */
+/* Forced-colors mode (Windows High Contrast). Make sure the focus ring
+   uses the system's "Highlight" colour so it remains visible regardless
+   of theme. */
+@media (forced-colors: active) {
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* ============================================================
+   Reduced motion: honour the user's OS-level preference. Catches
+   Tailwind transitions, Alpine x-transition, and any future
+   keyframe animation. The `!important` is intentional so it wins
+   over Tailwind's per-utility transition classes.
+   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
 }

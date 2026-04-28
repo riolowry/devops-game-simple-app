@@ -11,6 +11,11 @@
 (function () {
   "use strict";
 
+  // Build marker. If you ever suspect a stale browser cache, open the
+  // DevTools console and look for this line; if it is missing, you are
+  // running an older build of app.js.
+  console.info("[devsec] app.js loaded (drop-zone uploader build)");
+
   // ============================================================
   // Config check
   // ============================================================
@@ -19,12 +24,17 @@
       document.body.innerHTML = `
         <div style="font-family: system-ui; max-width: 600px; margin: 4rem auto; padding: 1rem;">
           <h1>Configuration required</h1>
-          <p>Copy <code>setup_resources/config.example.js</code> to <code>public/config.js</code> and set your Supabase URL and anon key. See <a href="https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_SUPABASE_DB.md" target="_blank" rel="noopener">setup_resources/SETUP_SUPABASE_DB.md</a> in the repository for more information.</p>
+          <p>Copy <code>setup_resources/config.example.js</code> to <code>public/config.js</code> and set your Supabase URL and publishable key. See <a href="https://github.com/riolowry/devops-game-simple-app/blob/main/setup_resources/SETUP_SUPABASE_DB.md" target="_blank" rel="noopener">setup_resources/SETUP_SUPABASE_DB.md</a> in the repository for more information.</p>
         </div>
       `;
     });
     return;
   }
+
+  // Resolve the project key. The current Supabase format is the publishable key
+  // (sb_publishable_...); the legacy anon JWT (eyJ...) is still accepted as a
+  // fallback so an in-flight migration cannot brick a running session.
+  const PROJECT_KEY = window.CONFIG.SUPABASE_PUBLISHABLE_KEY || window.CONFIG.SUPABASE_ANON_KEY;
 
   // ============================================================
   // Debug helpers
@@ -216,9 +226,13 @@
   // ============================================================
   // Supabase client
   // ============================================================
-  const supabase = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY, {
+  const supabase = window.supabase.createClient(window.CONFIG.SUPABASE_URL, PROJECT_KEY, {
     realtime: {params: {eventsPerSecond: 10}},
   });
+
+  // Bucket name for participant image uploads. Created and policied by
+  // schema.sql; see the STORAGE section there.
+  const STORAGE_BUCKET = "task-images";
 
   // ============================================================
   // Alpine store definition
@@ -767,21 +781,80 @@
         }
       },
 
-      async completeTask(task, attachmentUrl) {
-        if (!attachmentUrl || !attachmentUrl.trim()) {
-          this.toast("Paste an image URL to complete the task.");
-          return;
+      // Accepts either a File (from the drop-zone uploader on index.html, the
+      // normal path) or a string URL (legacy, used by tests and as a fallback
+      // path that the UI no longer surfaces). Returns true on success and
+      // false on any failure, so the caller's UI can clear or preserve the
+      // selected file appropriately.
+      async completeTask(task, fileOrUrl) {
+        let finalUrl = "";
+
+        if (fileOrUrl instanceof File) {
+          // Validate quickly client-side. Supabase enforces a project-wide
+          // file size limit too (default 50 MB on the free plan), but a 10 MB
+          // soft cap here saves bandwidth and gives a friendlier error message.
+          if (!fileOrUrl.type.startsWith("image/")) {
+            this.toast("Please choose an image file.");
+            return false;
+          }
+          if (fileOrUrl.size > 10 * 1024 * 1024) {
+            this.toast("Image is over 10 MB. Please choose a smaller file.");
+            return false;
+          }
+
+          this.toast("Uploading image...");
+          // Flat path (no folders) so list/delete in resetEverything() can
+          // sweep the bucket in one call without recursing. Date.now() makes
+          // the filename unique even if a developer re-uploads.
+          const ext = (fileOrUrl.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const safeExt = ext || "png";
+          const filePath =
+            "sprint" +
+            this.gameState.current_sprint +
+            "_issue" +
+            task.parent_issue_id +
+            "_task" +
+            task.id +
+            "_" +
+            Date.now() +
+            "." +
+            safeExt;
+
+          const upload = await supabase.storage.from(STORAGE_BUCKET).upload(filePath, fileOrUrl, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: fileOrUrl.type,
+          });
+          if (upload.error) {
+            console.error("completeTask upload:", upload.error);
+            this.toast("Image upload failed: " + upload.error.message);
+            return false;
+          }
+
+          const {data: pub} = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+          finalUrl = pub && pub.publicUrl ? pub.publicUrl : "";
+          if (!finalUrl) {
+            this.toast("Could not resolve image URL after upload.");
+            return false;
+          }
+        } else if (typeof fileOrUrl === "string" && fileOrUrl.trim()) {
+          finalUrl = fileOrUrl.trim();
+        } else {
+          this.toast("Choose an image to complete the task.");
+          return false;
         }
+
         const {error} = await supabase
           .from("tasks")
-          .update({attachment_url: attachmentUrl.trim(), status: "complete"})
+          .update({attachment_url: finalUrl, status: "complete"})
           .eq("id", task.id);
         if (error) {
-          console.error("completeTask:", error);
+          console.error("completeTask DB update:", error);
           this.toast("Update failed: " + error.message);
-          return;
+          return false;
         }
         this.toast("Task complete.");
+        return true;
       },
 
       // -------- hacker action --------
@@ -939,12 +1012,39 @@
       },
 
       async resetEverything() {
+        // 1. Wipe the task-images bucket. Three traps to dodge:
+        //    - list() defaults to 100 results per call, so explicitly ask for
+        //      up to 1000 (the bucket cap for a single list).
+        //    - Supabase returns "folder placeholder" rows that have no `id`;
+        //      filter them out so we never try to delete a phantom path.
+        //    - Storage permissions are separate from table RLS: schema.sql
+        //      creates policies that allow public delete on this bucket.
+        try {
+          const {data: files, error: listError} = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .list("", {limit: 1000});
+          if (listError) {
+            console.error("resetEverything storage list:", listError);
+          } else if (files && files.length > 0) {
+            const filePaths = files.filter((f) => f.id).map((f) => f.name);
+            if (filePaths.length > 0) {
+              const {error: rmError} = await supabase.storage.from(STORAGE_BUCKET).remove(filePaths);
+              if (rmError) console.error("resetEverything storage remove:", rmError);
+            }
+          }
+        } catch (e) {
+          // Network failure should not block the DB reset; the operator can
+          // manually clear the bucket from the Supabase dashboard if needed.
+          console.error("resetEverything storage exception:", e);
+        }
+
+        // 2. Wipe the database tables, then reset game_state.
         await supabase.from("hacker_log").delete().neq("id", 0);
         await supabase.from("tasks").delete().neq("id", 0);
         await supabase.from("issues").delete().neq("id", 0);
         await supabase.from("users").delete().neq("role", "facilitator");
         await this.updateGameState({current_sprint: 1, hacker_count: 0, sprint3_auto_advance_seconds: 0});
-        this.toast("Full reset complete.");
+        this.toast("Full reset complete. Images cleared.");
       },
 
       exportStateJSON() {

@@ -77,7 +77,7 @@ Three minutes, tops. Participants read the details in the Help tab inside the ap
 
 - Each role owns one column of the board.
 - Business creates Product Requests; Developers do the colouring; Testers visually check; Security runs a Security Check; Release deploys.
-- Use [online-coloring.com](https://www.online-coloring.com) for the colouring. Upload finished pages to any image host (imgur, postimg) and paste the URL into your Task.
+- Use [online-coloring.com](https://www.online-coloring.com) for the colouring. When a page is finished, save or screenshot it (or photograph paper colouring) and either drop it onto the dashed upload area on the Task, or click that area to browse. The app handles the upload; no imgur or postimg account needed.
 - Three sprints. Each one works slightly differently. You will tell them how.
 
 ### 4. Start Sprint 1
@@ -119,6 +119,8 @@ Expected observation: Containerized items flow through safely. Non-containerized
 
 **"The board isn't updating."** Check the connection indicator in the header. Green means realtime, yellow means polling (3 second latency, acceptable), red means offline. If red, check the Wi-Fi. Supabase going down is rare but possible; there is no offline mode.
 
+**"A participant is seeing the old version of the UI after I redeployed."** This is a browser cache issue. The deployed `public/_headers` file already tells browsers to revalidate every request, so this should be rare. If it happens anyway, ask them to do a hard refresh: Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows. To verify which build a participant is on, ask them to open DevTools and look in the Console tab for a line that reads `[devsec] app.js loaded (drop-zone uploader build)`. If that line is missing, they are on an older build and a hard refresh will fix it.
+
 **Someone figured out the Hacker via DevTools.** Teachable moment. In real life, pipeline security has to assume insider threats exist. Acknowledge it and continue.
 
 ## After the session
@@ -136,8 +138,8 @@ Also open **Export tab** and download the JSON. Keep it for post-course reflecti
 
 ### 2. Reset
 
-- For a repeat session with the same participants: **Reset tab** → **Reset Issues and Tasks**. Keeps users; wipes the board.
-- For a fresh class: **Reset tab** → **Reset Everything**. Wipes all users except your facilitator token.
+- For a repeat session with the same participants: **Reset tab** → **Reset Issues and Tasks**. Keeps users; wipes the board. Image files in storage stay (they will be cleaned on the next full reset).
+- For a fresh class: **Reset tab** → **Reset Everything**. Wipes all users except your facilitator token, all issues and tasks, the hacker log, and every image in the `task-images` storage bucket. This is the action that keeps the project safely under the 1 GB free-tier storage cap between sessions.
 
 ### 3. Shut down (optional)
 

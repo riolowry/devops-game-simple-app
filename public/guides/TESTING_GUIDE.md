@@ -51,7 +51,7 @@ Adjust the **Delay** field (default 1500 ms) to control how fast DB-touching tes
 What each test covers:
 
 - `fe-*`: frontend unit tests against `window.App.logic` (no DB). Cover role labels, progress/batch-gate, flaw detection, effective role/team, canAct permission matrix, hacker injection scope, facilitator impersonation, and create_issue permission.
-- `health`: all five tables are reachable with the anon key.
+- `health`: all five tables are reachable with the publishable key.
 - `game-state`: the singleton `game_state` row exists.
 - `facilitator-seed`: the `FACIL1` facilitator token from `schema.sql` is present.
 - `u-*`: DB-level unit tests: create user, create issue, claim, batch gate, deterministic security rule.
@@ -139,7 +139,7 @@ Each test assumes you are logged in as the stated role and viewing `index.html`.
 2. Wait for Business to create a request. Open the card.
 3. Click **Claim for \<my team\>**. Confirm the card moves to In Progress with a team-color pill.
 4. Click the card again. Click **+ Claim a Task**. Confirm a task row appears with status `claimed`.
-5. In the task's **Paste image/page URL** field, paste any URL. Click **Mark complete**. Confirm the task badge goes from `claimed` to `complete` and the batch counter on the parent card goes from 0/2 to 1/2.
+5. On the new Task you should see a dashed upload area labelled "Drop your finished image here, or click to browse". Drop any local image onto it (or click to open the file picker and choose one). Confirm a thumbnail appears with the file name and size, and a green **Upload &amp; mark complete** button shows below. Click it; the button briefly reads **Uploading...** and then the task badge flips from `claimed` to `complete`, the uploaded file's public Supabase Storage URL appears as a link on the task, and the batch counter on the parent card advances from 0/2 to 1/2.
 6. Create a second task (if Batch Size is 2). Complete it. Verify the batch counter is now 2/2 and the **Send to Testing** button becomes enabled.
 7. Click Send to Testing. Card moves.
 8. If the item later lands in Feedback: open it, confirm the rejection reason is shown, click **Pick up for rework**. Card moves back to In Progress; the rejection reason clears.
@@ -152,7 +152,7 @@ Sprint 3 specifics:
 ### 3c. Tester
 
 1. Items only reach you via Send to Testing. Open the card.
-2. Verify each Task has an image URL attached (click through to check). Confirm the UI shows this list clearly.
+2. Verify each Task has an attached image (each one renders as a clickable link on the task; click through to view). Confirm the UI shows this list clearly.
 3. Click **Pass Testing**. Card moves to Security.
 4. Or click **Fail Testing**. Card goes back to In Progress.
 
@@ -242,10 +242,11 @@ No configuration, no conditional branching. Release is the simplest role.
 
 - **Supabase pauses after 7 days of inactivity.** First page load after a pause takes 30 to 60 seconds. Hit the URL the day before a real session.
 - **Conference Wi-Fi may block WebSockets.** The app falls back to polling after 3 seconds. The header indicator turns from green to yellow. Functionality is unchanged.
-- **Client-side role enforcement.** Someone who opens DevTools can write directly to the DB via the anon key. Documented as trust-based. A determined student can break the game. This is acceptable for a classroom exercise and, frankly, itself a teachable moment.
+- **Client-side role enforcement.** Someone who opens DevTools can write directly to the DB via the publishable key. Documented as trust-based. A determined student can break the game. This is acceptable for a classroom exercise and, frankly, itself a teachable moment.
 - **Issue acceptance used to wipe retro data.** Fixed: `acceptProduction()` now nulls the `hacker_log.target_issue_id` FK before deleting the issue, so the cascade does not delete the log row. If you wrote your own version of the app before this fix, the test `e2e-security-misses` will reveal the regression.
 - **Facilitator simulation previously short-circuited on write actions.** Fixed: `createIssue` now goes through `canAct('create_issue')` instead of reading `this.user.role` directly, so a facilitator simulating as Business can actually create Product Requests. `claimIssue` and `canAct` already used effective role/team; this was the outlier. If you wrote your own version before this fix, the `fe-create-issue-permission` frontend test will catch the regression.
 - **Dev team attribution on tickets.** The ticket detail modal shows the team as a prominent color-coded badge (previously faint "Team: X" text). For facilitators whose simulated team does not match, a one-click "Simulate as <team>" chip appears in the modal so swapping teams is instant.
+- **Reset Everything sweeps the storage bucket too.** Since the file-upload feature was added, the facilitator's **Reset Everything** button also lists and deletes every object in the `task-images` Supabase Storage bucket before wiping the database tables. The list call is paginated to 1000 items and filters out folder placeholders, which catches edge cases that the naive default would silently leave behind. Tests that write directly to `attachment_url` with fake URLs (the harness never uploads real files) do not consume bucket storage and are unaffected.
 
 ---
 
